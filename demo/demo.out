@@ -1,0 +1,392 @@
+PGConf NYC 2014 Database Validation and Versioning Demo
+
+CREATE DB DIR: mkdir db
+
+CREATE CLUSTER: initdb -D db -A trust
+The files belonging to this database system will be owned by user "dsteele".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "en_US.UTF-8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory db ... ok
+creating subdirectories ... ok
+selecting default max_connections ... 100
+selecting default shared_buffers ... 128MB
+creating configuration files ... ok
+creating template1 database in db/base/1 ... ok
+initializing pg_authid ... ok
+initializing dependencies ... ok
+creating system views ... ok
+loading system objects' descriptions ... ok
+creating collations ... ok
+creating conversions ... ok
+creating dictionaries ... ok
+setting privileges on built-in objects ... ok
+creating information schema ... ok
+loading PL/pgSQL server-side language ... ok
+vacuuming database template1 ... ok
+copying template1 to template0 ... ok
+copying template1 to postgres ... ok
+syncing data to disk ... ok
+
+Success. You can now start the database server using:
+
+    postgres -D db
+or
+    pg_ctl -D db -l logfile start
+
+
+START CLUSTER: pg_ctl start -o "-c port=5500" -D db -l db/postgresql.log -w -s
+
+[press enter]
+
+
+CREATE GIT REPO: cd repo && git init .
+Initialized empty Git repository in /Users/dsteele/Documents/Conference/DatabaseValidationAndVersioning/demo/repo/.git/
+
+
+CREATE FULL PROJECT: cd repo/full && sqitch --engine pg init app
+Created sqitch.conf
+Created sqitch.plan
+Created deploy/
+Created revert/
+Created verify/
+
+CREATE FULL TARGET: cd repo/full && sqitch target add app db:pg://localhost:5500/app_full
+
+
+CREATE UPDATE PROJECT: cd repo/update && sqitch --engine pg init app
+Created sqitch.conf
+Created sqitch.plan
+Created deploy/
+Created revert/
+Created verify/
+
+CREATE UPDATE TARGET: cd repo/update && sqitch target add app db:pg://localhost:5500/app
+
+STAGE APP PROJECT: cd repo && git add .
+
+COMMIT APP PROJECT: cd repo && git commit -am 'Init db'
+[master (root-commit) 1a7a5bb] Init db
+ 4 files changed, 34 insertions(+)
+ create mode 100644 full/sqitch.conf
+ create mode 100644 full/sqitch.plan
+ create mode 100644 update/sqitch.conf
+ create mode 100644 update/sqitch.plan
+
+[press enter]
+
+CREATE V1 FULL DB: echo "create database app_full" | psql --port=5500 postgres
+CREATE DATABASE
+
+ADD PUBLIC SCHEMA: cd repo/full && sqitch add app_table --without=verify --without=revert -n 'Add app schema'
+Created deploy/app_table.sql
+Added "app_table" to sqitch.plan
+
+MV DEPLOY SCRIPT: cp -f sql/full_v1.sql repo/full/deploy/app_table.sql
+
+-- V1 FULL
+create schema app;
+
+create table app.master
+(
+    id serial,
+    name text,
+    constraint master_pk primary key (id)
+);
+
+DEPLOY FULL V1: cd repo/full && sqitch deploy app
+Adding registry tables to app
+Deploying changes to app
+  + app_table .. ok
+
+[press enter]
+
+CREATE V1 UPDATE DB: echo "create database app" | psql --port=5500 postgres
+CREATE DATABASE
+
+ADD PUBLIC SCHEMA: cd repo/update && sqitch add update_v1 --without=verify -n 'Add v1 update'
+Created deploy/update_v1.sql
+Created revert/update_v1.sql
+Added "update_v1" to sqitch.plan
+
+
+EXPORT UPDATE DB: pg_dump --port=5500 -s -N sqitch app > diff/old.dump
+
+EXPORT FULL DB: pg_dump --port=5500 -s -N sqitch app_full > diff/new.dump
+
+CREATE V1 DEPLOY SCRIPT: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/old.dump diff/new.dump > repo/update/deploy/update_v1.sql
+
+
+CREATE SCHEMA app;
+
+SET search_path = app, pg_catalog;
+
+CREATE SEQUENCE master_id_seq
+	START WITH 1
+	INCREMENT BY 1
+	NO MAXVALUE
+	NO MINVALUE
+	CACHE 1;
+
+CREATE TABLE master (
+	id integer DEFAULT nextval('master_id_seq'::regclass) NOT NULL,
+	name text
+);
+
+ALTER SEQUENCE master_id_seq
+	OWNED BY master.id;
+
+ALTER TABLE master
+	ADD CONSTRAINT master_pk PRIMARY KEY (id);
+
+CREATE V1 REVERT SCRIPT: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/new.dump diff/old.dump > repo/update/revert/update_v1.sql
+
+
+DROP SCHEMA app CASCADE;
+
+COMMIT V1: cd repo && git add . && git commit -am 'Completed v1'
+[master f1d3884] Completed v1
+ 5 files changed, 35 insertions(+)
+ create mode 100644 full/deploy/app_table.sql
+ create mode 100644 update/deploy/update_v1.sql
+ create mode 100644 update/revert/update_v1.sql
+
+DEPLOY UPDATE V1: cd repo/update && sqitch deploy app
+Adding registry tables to app
+Deploying changes to app
+  + update_v1 .. ok
+
+[press enter]
+
+EXPORT UPDATE DB: pg_dump --port=5500 -s -N sqitch app > diff/update.dump
+
+EXPORT FULL DB: pg_dump --port=5500 -s -N sqitch app_full > diff/full.dump
+
+COMPARE V1 DB: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/full.dump diff/update.dump
+
+TAG V1: cd repo/update && sqitch tag v1 -n 'Tag v1'
+Tagged "update_v1" with @v1
+
+[press enter]
+
+MV DEPLOY SCRIPT: cp -f sql/full_v2.sql repo/full/deploy/app_table.sql
+
+-- V2 FULL
+create schema app;
+
+create table app.master
+(
+    id serial not null,
+    name text not null,
+    constraint master_pk primary key (id)
+);
+
+CREATE V2 FULL DB: echo "drop database app_full; create database app_full" | psql --port=5500 postgres
+DROP DATABASE
+CREATE DATABASE
+
+DEPLOY V2: cd repo/full && sqitch deploy app
+Adding registry tables to app
+Deploying changes to app
+  + app_table .. ok
+
+[press enter]
+
+ADD UPDATE: cd repo/update && sqitch add update_v2 --without=verify -n 'Add v2 update'
+Created deploy/update_v2.sql
+Created revert/update_v2.sql
+Added "update_v2" to sqitch.plan
+
+EXPORT UPDATE DB: pg_dump --port=5500 -s -N sqitch app > diff/old.dump
+
+EXPORT FULL DB: pg_dump --port=5500 -s -N sqitch app_full > diff/new.dump
+
+CREATE V2 DEPLOY SCRIPT: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/old.dump diff/new.dump > repo/update/deploy/update_v2.sql
+
+
+SET search_path = app, pg_catalog;
+
+ALTER TABLE master
+	ALTER COLUMN name SET NOT NULL;
+
+CREATE V2 REVERT SCRIPT: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/new.dump diff/old.dump > repo/update/revert/update_v2.sql
+
+
+SET search_path = app, pg_catalog;
+
+ALTER TABLE master
+	ALTER COLUMN name DROP NOT NULL;
+
+COMMIT V2: cd repo && git add . && git commit -am 'Completed v2'
+[master 6d32dab] Completed v2
+ 4 files changed, 16 insertions(+), 3 deletions(-)
+ create mode 100644 update/deploy/update_v2.sql
+ create mode 100644 update/revert/update_v2.sql
+
+DEPLOY V2: cd repo/update && sqitch deploy app
+Deploying changes to app
+  + update_v2 .. ok
+
+[press enter]
+
+EXPORT UPDATE DB: pg_dump --port=5500 -s -N sqitch app > diff/update.dump
+
+EXPORT FULL DB: pg_dump --port=5500 -s -N sqitch app_full > diff/full.dump
+
+COMPARE V2 DB: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/full.dump diff/update.dump
+
+TAG V2: cd repo/update && sqitch tag v2 -n 'Tag v2'
+Tagged "update_v2" with @v2
+
+[press enter]
+
+MV DEPLOY SCRIPT: cp -f sql/full_v3.sql repo/full/deploy/app_table.sql
+
+-- V3 FULL
+create schema app;
+
+create table app.master
+(
+    id serial not null,
+    name text not null,
+    constraint master_pk primary key (id)
+);
+
+create table app.detail
+(
+    id serial not null,
+    master_id int not null
+        constraint detail_masterid_fk references app.master (id),
+    name text not null,
+    constraint detail_pk primary key (id)
+);
+
+DROP V2 FULL DB: echo "drop database app_full" | psql --port=5500 postgres
+DROP DATABASE
+
+CREATE V3 FULL DB: echo "create database app_full" | psql --port=5500 postgres
+CREATE DATABASE
+
+DEPLOY V3: cd repo/full && sqitch deploy app
+Adding registry tables to app
+Deploying changes to app
+  + app_table .. ok
+
+[press enter]
+
+ADD UPDATE: cd repo/update && sqitch add update_v3 --without=verify -n 'Add v3 update'
+Created deploy/update_v3.sql
+Created revert/update_v3.sql
+Added "update_v3" to sqitch.plan
+
+MV DEPLOY SCRIPT: cp -f sql/deploy_v3_error.sql repo/update/deploy/update_v3.sql
+
+-- V3 DEPLOY ERROR
+create table app.detail
+(
+    id serial not null,
+    master_id int not null,
+    name text not null
+);
+
+MV DEPLOY SCRIPT: cp -f sql/revert_v3.sql repo/update/revert/update_v3.sql
+
+-- V3 DEPLOY ERROR
+drop table app.detail;
+
+COMMIT V3: cd repo && git add . && git commit -am 'Completed v3'
+[master 7637e6a] Completed v3
+ 4 files changed, 22 insertions(+), 1 deletion(-)
+ create mode 100644 update/deploy/update_v3.sql
+ create mode 100644 update/revert/update_v3.sql
+
+DEPLOY V3 ERROR: cd repo/update && sqitch deploy app
+Deploying changes to app
+  + update_v3 .. ok
+
+[press enter]
+
+EXPORT UPDATE DB: pg_dump --port=5500 -s -N sqitch app > diff/update.dump
+
+EXPORT FULL DB: pg_dump --port=5500 -s -N sqitch app_full > diff/full.dump
+
+COMPARE V3 ERROR DB: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/update.dump diff/full.dump
+
+SET search_path = app, pg_catalog;
+
+ALTER TABLE detail
+	ADD CONSTRAINT detail_pk PRIMARY KEY (id);
+
+ALTER TABLE detail
+	ADD CONSTRAINT detail_masterid_fk FOREIGN KEY (master_id) REFERENCES master(id);
+
+[press enter]
+
+--------------------
+
+REVERT V3 ERROR: cd repo/update && sqitch revert -y app update_v2
+Reverting changes to update_v2 @v2 from app
+  - update_v3 .. ok
+
+[press enter]
+
+--------------------
+
+EXPORT UPDATE DB: pg_dump --port=5500 -s -N sqitch app > diff/old.dump
+
+EXPORT FULL DB: pg_dump --port=5500 -s -N sqitch app_full > diff/new.dump
+
+CREATE V3 DEPLOY SCRIPT: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/old.dump diff/new.dump > repo/update/deploy/update_v3.sql
+
+
+SET search_path = app, pg_catalog;
+
+CREATE SEQUENCE detail_id_seq
+	START WITH 1
+	INCREMENT BY 1
+	NO MAXVALUE
+	NO MINVALUE
+	CACHE 1;
+
+CREATE TABLE detail (
+	id integer DEFAULT nextval('detail_id_seq'::regclass) NOT NULL,
+	master_id integer NOT NULL,
+	name text NOT NULL
+);
+
+ALTER SEQUENCE detail_id_seq
+	OWNED BY detail.id;
+
+ALTER TABLE detail
+	ADD CONSTRAINT detail_pk PRIMARY KEY (id);
+
+ALTER TABLE detail
+	ADD CONSTRAINT detail_masterid_fk FOREIGN KEY (master_id) REFERENCES master(id);
+
+COMMIT V3: cd repo && git add . && git commit -am 'Fixed v3'
+[master 1d77735] Fixed v3
+ 1 file changed, 24 insertions(+), 7 deletions(-)
+ rewrite update/deploy/update_v3.sql (97%)
+
+DEPLOY V3: cd repo/update && sqitch deploy app
+Deploying changes to app
+  + update_v3 .. ok
+
+[press enter]
+
+EXPORT UPDATE DB: pg_dump --port=5500 -s -N sqitch app > diff/update.dump
+
+EXPORT FULL DB: pg_dump --port=5500 -s -N sqitch app_full > diff/full.dump
+
+COMPARE V3 CORRECTED DB: java -jar apgdiff-2.4/apgdiff-2.4.jar --ignore-start-with diff/full.dump diff/update.dump
+
+[press enter]
+
+STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
+
+Demo Complete!
