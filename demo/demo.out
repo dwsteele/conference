@@ -1,0 +1,231 @@
+NYC Postgres Users Group PgBackRest Demo
+
+Setup the cluster and repo:
+
+CREATE DB DIR: mkdir db
+
+CREATE CLUSTER: initdb -D db -A trust
+The files belonging to this database system will be owned by user "dsteele".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "en_US.UTF-8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory db ... ok
+creating subdirectories ... ok
+selecting default max_connections ... 100
+selecting default shared_buffers ... 128MB
+creating configuration files ... ok
+creating template1 database in db/base/1 ... ok
+initializing pg_authid ... ok
+initializing dependencies ... ok
+creating system views ... ok
+loading system objects' descriptions ... ok
+creating collations ... ok
+creating conversions ... ok
+creating dictionaries ... ok
+setting privileges on built-in objects ... ok
+creating information schema ... ok
+loading PL/pgSQL server-side language ... ok
+vacuuming database template1 ... ok
+copying template1 to template0 ... ok
+copying template1 to postgres ... ok
+syncing data to disk ... ok
+
+Success. You can now start the database server using:
+
+    postgres -D db
+or
+    pg_ctl -D db -l logfile start
+
+
+START CLUSTER: pg_ctl start -o "-c port=5500 -c archive_mode=on -c wal_level=archive -c archive_command='/Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+
+CREATE TABLE: echo "create table test (message text)" | psql --port=5500 postgres
+CREATE TABLE
+
+CREATE REPO: mkdir repo
+
+[press enter]
+
+Do a full backup:
+
+BACKUP TYPE=FULL: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--cmd-psql=psql -X --port=5500" "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main --type=full backup
+
+DB SIZE: du -sh db
+ 51M	db
+
+SHOW BACKUP: ls -lah repo/backup/main
+total 8
+drwxr-xr-x+ 4 dsteele  staff   136B Apr 21 14:28 .
+drwxr-xr-x+ 3 dsteele  staff   102B Apr 21 14:28 ..
+drwxr-xr-x+ 4 dsteele  staff   136B Apr 21 14:28 20150421-142831F
+lrwxr-xr-x  1 dsteele  staff    16B Apr 21 14:28 latest -> 20150421-142831F
+
+BACKUP SIZE: du -sh repo/backup/main
+4.9M	repo/backup/main
+
+SHOW ARCHIVE: ls -lah repo/archive/main/0000000100000000
+total 3880
+drwx------+ 5 dsteele  staff   170B Apr 21 14:28 .
+drwx------+ 4 dsteele  staff   136B Apr 21 14:28 ..
+-rw-------+ 1 dsteele  staff   1.9M Apr 21 14:28 000000010000000000000001-959d62baa68265687767c1a93f363472a943501d.gz
+-rw-------+ 1 dsteele  staff    16K Apr 21 14:28 000000010000000000000002-97c127db2a7aba1c3be98acc918b23f8aa9bb3be.gz
+-rw-------+ 1 dsteele  staff   330B Apr 21 14:28 000000010000000000000002.00000028.backup
+
+ARCHIVE SIZE: du -sh repo/archive/main
+1.9M	repo/archive/main
+
+ARCHIVE INFO: more repo/archive/main/archive.info
+[database]
+system-id=6140260924838631415
+version=9.3
+
+[press enter]
+
+Do an incremental backup:
+
+BACKUP TYPE=INCR: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--cmd-psql=psql -X --port=5500" "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main --type=incr backup
+
+DB SIZE: du -sh db
+ 67M	db
+
+SHOW BACKUP: ls -lah repo/backup/main
+total 8
+drwxr-xr-x+ 5 dsteele  staff   170B Apr 21 14:28 .
+drwxr-xr-x+ 3 dsteele  staff   102B Apr 21 14:28 ..
+drwxr-xr-x+ 4 dsteele  staff   136B Apr 21 14:28 20150421-142831F
+drwxr-xr-x+ 4 dsteele  staff   136B Apr 21 14:28 20150421-142831F_20150421-142834I
+lrwxr-xr-x  1 dsteele  staff    33B Apr 21 14:28 latest -> 20150421-142831F_20150421-142834I
+
+BACKUP SIZE: du -sh repo/backup/main
+5.1M	repo/backup/main
+
+SHOW ARCHIVE: ls -lah repo/archive/main/0000000100000000
+total 3928
+drwx------+ 7 dsteele  staff   238B Apr 21 14:28 .
+drwx------+ 4 dsteele  staff   136B Apr 21 14:28 ..
+-rw-------+ 1 dsteele  staff   1.9M Apr 21 14:28 000000010000000000000001-959d62baa68265687767c1a93f363472a943501d.gz
+-rw-------+ 1 dsteele  staff    16K Apr 21 14:28 000000010000000000000002-97c127db2a7aba1c3be98acc918b23f8aa9bb3be.gz
+-rw-------+ 1 dsteele  staff   330B Apr 21 14:28 000000010000000000000002.00000028.backup
+-rw-------+ 1 dsteele  staff    16K Apr 21 14:28 000000010000000000000003-36843910ed86d65d39858f6b5b3014745aa8232f.gz
+-rw-------+ 1 dsteele  staff   330B Apr 21 14:28 000000010000000000000003.00000028.backup
+
+ARCHIVE SIZE: du -sh repo/archive/main
+1.9M	repo/archive/main
+
+[press enter]
+
+Release time - let's set a restore point so we can rollback if needed:
+
+BACKUP TYPE=DIFF: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--cmd-psql=psql -X --port=5500" "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main --type=diff backup
+
+SHOW BACKUP: ls -lah repo/backup/main
+total 8
+drwxr-xr-x+ 6 dsteele  staff   204B Apr 21 14:28 .
+drwxr-xr-x+ 3 dsteele  staff   102B Apr 21 14:28 ..
+drwxr-xr-x+ 4 dsteele  staff   136B Apr 21 14:28 20150421-142831F
+drwxr-xr-x+ 4 dsteele  staff   136B Apr 21 14:28 20150421-142831F_20150421-142834I
+drwxr-xr-x+ 4 dsteele  staff   136B Apr 21 14:28 20150421-142831F_20150421-142837D
+lrwxr-xr-x  1 dsteele  staff    33B Apr 21 14:28 latest -> 20150421-142831F_20150421-142837D
+
+INSERT BEFORE MESSAGE: echo "insert into test values ('before release')" | psql --port=5500 postgres
+INSERT 0 1
+
+CREATE RESTORE POINT: echo "select pg_create_restore_point('release')" | psql --port=5500 postgres
+ pg_create_restore_point 
+-------------------------
+ 0/5001FE0
+(1 row)
+
+DO THE RELEASE!
+
+INSERT AFTER MESSAGE: echo "update test set message = 'after release'" | psql --port=5500 postgres
+UPDATE 1
+
+[press enter]
+
+QA says the release is no good - please rollback:
+
+RESTORE TYPE=NAME TARGET=release: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main --type=name --target=release --delta restore
+2015-04-21 14:28:37.549 T00  ERROR: [113] unable to restore while Postgres is running
+
+[press enter]
+
+Forgot to stop the database - try again:
+
+STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
+
+RESTORE TYPE=NAME TARGET=release: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main --type=name --target=release --delta restore
+
+SHOW RECOVERY.CONF: more db/recovery.conf
+restore_command = '/Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl --db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db --repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo --stanza=main archive-get %f "%p"'
+recovery_target_name = 'release'
+
+START CLUSTER: pg_ctl start -o "-c port=5500 -c archive_mode=on -c wal_level=archive -c archive_command='/Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+
+GET MESSAGE: echo "select message from test" | psql --port=5500 postgres
+    message     
+----------------
+ before release
+(1 row)
+
+
+SHOW NEW TIMELINE: ls -lah repo/archive/main
+total 16
+drwx------+  5 dsteele  staff   170B Apr 21 14:28 .
+drwx------+  3 dsteele  staff   102B Apr 21 14:28 ..
+drwx------+ 10 dsteele  staff   340B Apr 21 14:28 0000000100000000
+-rw-------+  1 dsteele  staff    39B Apr 21 14:28 00000002.history
+-rw-------+  1 dsteele  staff    53B Apr 21 14:28 archive.info
+
+SHOW NEW TIMELINE INFO: more repo/archive/main/00000002.history
+1	0/5001F78	at restore point "release"
+
+INSERT AFTER MESSAGE: echo "update test set message = 'very important update'" | psql --port=5500 postgres
+UPDATE 1
+
+[press enter]
+
+QA made a mistake, the release is good!  Please undo the rollback:
+
+STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
+
+RESTORE TYPE=DEFAULT: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main --delta restore
+
+START CLUSTER: pg_ctl start -o "-c port=5500 -c archive_mode=on -c wal_level=archive -c archive_command='/Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+
+GET MESSAGE: echo "select message from test" | psql --port=5500 postgres
+    message    
+---------------
+ after release
+(1 row)
+
+
+[press enter]
+
+Uh oh - what about that 'very important update' we did?.  Rollback the undo of the rollback:
+
+STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
+
+RESTORE TYPE=DEFAULT TIMELINE=2: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main --target-timeline=2 --delta restore
+
+START CLUSTER: pg_ctl start -o "-c port=5500 -c archive_mode=on -c wal_level=archive -c archive_command='/Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl "--db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db" "--repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo" --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+
+GET MESSAGE: echo "select message from test" | psql --port=5500 postgres
+        message        
+-----------------------
+ very important update
+(1 row)
+
+
+[press enter]
+
+Stop the cluster:
+
+STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
+
+Demo Complete!
