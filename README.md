@@ -1,4 +1,4 @@
-Title: Efficiently Backing up Terabytes of Data with PgBackRest
+Title: Heavy Duty Backup with PgBackRest
 
 Abstract:
 

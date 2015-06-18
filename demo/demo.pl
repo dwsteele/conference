@@ -14,22 +14,31 @@ use Cwd qw(abs_path);
 use Getopt::Long qw(GetOptions);
 
 ####################################################################################################################################
-# GLOBAL VARIABLES
+# INSTALLATION-SPECIFIC VARIABLES
+#
+# Modify these variables to match your installation in order to run the demo.
 ####################################################################################################################################
+# Fully-qualified path to pg_backrest.pl
+my $strBackRestBin = "/Users/dsteele/Documents/Code/backrest/bin/pg_backrest";
+
+# Version of Postgres that is on the default path (pg_ctl esp.)
+my $strDbVersion = '9.3';
+
+# Port to run the demo cluster on
 my $iPort = 5500;
 
+####################################################################################################################################
+# GLOBAL VARIABLES
+####################################################################################################################################
 use constant
 {
     true  => 1,
     false => 0
 };
 
-my $strBackRestBin = "/Users/dsteele/Documents/Code/backrest/bin/pg_backrest.pl";
 my $strStanza = 'main';
-
-my $strPsqlParam = "\"--cmd-psql=psql -X --port=${iPort}\"";
-my $strCommonParam = "\"--repo-path=" . dirname(abs_path($0)) . "/repo\" --stanza=${strStanza}";
-my $strDbParam = "\"--db-path=" . dirname(abs_path($0)) . "/db\"";
+my $strConfFileName = dirname(abs_path($0)) . '/pg_backrest.conf';
+my $strCommonParam = "\"--config=${strConfFileName}\" --stanza=${strStanza}";
 
 ####################################################################################################################################
 # Options
@@ -48,28 +57,36 @@ sub execute
     my $strCommand = shift;
     my $bWait = shift;
     my $bExpectError = shift;
-    
+
     if (defined($strWhat))
     {
-        print "\n$strWhat: $strCommand";
+        my $strCommandLog = $strCommand;
+
+        if (!$bNoWait)
+        {
+            $strCommandLog =~ s/$strBackRestBin/pg_backrest/;
+            $strCommandLog =~ s/ \"--config=${strConfFileName}\"//;
+        }
+
+        print "\n$strWhat: $strCommandLog";
     }
 
     print "\n";
 
     die confess "unable to execute: $strCommand"
         if system($strCommand) != 0 && (!defined($bExpectError) || !$bExpectError);
-    
+
     if (defined($bWait) && $bWait)
     {
         print "\n[press enter]";
-        
+
         if (!$bNoWait)
         {
             ReadMode(2);
             ReadKey(0);
             ReadMode(0);
         }
-        
+
         print "\n\n";
     }
 }
@@ -80,7 +97,7 @@ sub execute
 sub cluster_stop
 {
     my $strPath = shift;
-    
+
     # If the db directory already exists, stop the cluster and remove the directory
     if (-e $strPath)
     {
@@ -92,7 +109,7 @@ sub cluster_stop
 sub cluster_drop
 {
     my $strPath = shift;
-    
+
     # If the db directory already exists, stop the cluster and remove the directory
     if (-e $strPath)
     {
@@ -101,12 +118,12 @@ sub cluster_drop
         {
             cluster_stop($strPath);
         };
-    
+
         if ($@)
         {
             print "OUTPUT: $@";
         }
-    
+
         # Remove the db directory
         remove_tree($strPath) > 0 or confess "ERROR: unable to remove db directory";
     }
@@ -116,9 +133,9 @@ sub cluster_start
 {
     my $strPath = shift;
     my $bWait = shift;
-    
+
     execute("START CLUSTER", "pg_ctl start -o \"-c port=$iPort -c archive_mode=on -c wal_level=archive" .
-                             " -c archive_command='$strBackRestBin $strDbParam $strCommonParam archive-push %p'" . 
+                             " -c archive_command='$strBackRestBin $strCommonParam archive-push %p'" .
                              "\" -D $strPath -l $strPath/postgresql.log -w -s", defined($bWait) && $bWait);
 }
 
@@ -140,9 +157,9 @@ sub psql
     my $strWhat = shift;
     my $strSql = shift;
     my $bWait = shift;
-    
+
     my $strCommand = "echo \"$strSql\" | psql --port=$iPort postgres";
-    
+
     execute($strWhat, $strCommand, $bWait);
 }
 
@@ -155,7 +172,23 @@ sub backup
     my $bWait = shift;
 
     my $strWhat = 'BACKUP TYPE=' . uc($strType);
-    my $strCommand = "$strBackRestBin $strPsqlParam $strDbParam $strCommonParam --type=${strType} backup";
+    my $strCommand = "$strBackRestBin $strCommonParam --type=${strType} backup";
+
+    execute($strWhat, $strCommand, defined($bWait) && $bWait);
+}
+
+####################################################################################################################################
+# INFO
+####################################################################################################################################
+sub info
+{
+    my $strOutput = shift;
+    my $bWait = shift;
+
+    $strOutput = defined($strOutput) ? $strOutput : 'text';
+
+    my $strWhat = 'INFO OUTPUT=' . uc($strOutput);
+    my $strCommand = "$strBackRestBin $strCommonParam" . ($strOutput eq 'text' ? '' : " --output=${strOutput}") . " info";
 
     execute($strWhat, $strCommand, defined($bWait) && $bWait);
 }
@@ -171,12 +204,12 @@ sub restore
     my $bWait = shift;
     my $bExpectError = shift;
 
-    my $strWhat = 'RESTORE TYPE=' . 
+    my $strWhat = 'RESTORE TYPE=' .
         (defined($strType) ? uc($strType) : "DEFAULT") .
         (defined($strTarget) ? " TARGET=${strTarget}" : '') .
         (defined($iTimeline) ? " TIMELINE=${iTimeline}" : '');
-        
-    my $strCommand = "$strBackRestBin $strDbParam $strCommonParam" . 
+
+    my $strCommand = "$strBackRestBin $strCommonParam" .
         (defined($strType) ? " --type=${strType}" : '') .
         (defined($strTarget) ? " --target=${strTarget}" : '') .
         (defined($iTimeline) ? " --target-timeline=${iTimeline}" : '') .
@@ -186,14 +219,34 @@ sub restore
 }
 
 ####################################################################################################################################
+# WRITE_CONF
+####################################################################################################################################
+sub write_conf
+{
+    my $hFile;
+
+    open($hFile, '>', $strConfFileName)
+        or confess "unable to open ${strConfFileName}";
+
+    syswrite($hFile, "[global:command]\ncmd-psql=psql -X --port=${iPort}\n");
+    syswrite($hFile, "\n[global:general]\nrepo-path=" . dirname(abs_path($0)) . "/repo\n");
+    syswrite($hFile, "\n[${strStanza}]\ndb-path=" . dirname(abs_path($0)) . "/db\n");
+
+    close($hFile);
+}
+
+####################################################################################################################################
 # MAIN
 ####################################################################################################################################
-print "NYC Postgres Users Group PgBackRest Demo\n\n";
+print "PgCon 2015 PgBackRest Demo\n\n";
 
 print "Setup the cluster and repo:\n";
 
 # Drop the cluster if it is already running
 cluster_drop('db');
+
+# Write pg_backrest.conf
+write_conf();
 
 # Create the cluster
 cluster_create('db');
@@ -207,6 +260,9 @@ if (-e 'repo')
 # Create test table
 psql('CREATE TABLE', 'create table test (message text)');
 
+# Show conf
+execute('SHOW CONF', "cat ${strConfFileName}");
+
 # Create the repo
 execute('CREATE REPO', 'mkdir repo', true);
 
@@ -216,22 +272,23 @@ backup('full');
 execute('DB SIZE', 'du -sh db');
 execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}");
 execute('BACKUP SIZE', "du -sh repo/backup/${strStanza}");
-execute('SHOW ARCHIVE', "ls -lah repo/archive/${strStanza}/0000000100000000");
-execute('ARCHIVE SIZE', "du -sh repo/archive/${strStanza}");
+execute('BACKUP INFO', "more repo/backup/${strStanza}/backup.info", true);
+execute('SHOW ARCHIVE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1/0000000100000000");
+execute('ARCHIVE SIZE', "du -sh repo/archive/${strStanza}/${strDbVersion}-1");
 execute('ARCHIVE INFO', "more repo/archive/${strStanza}/archive.info", true);
 
-# Perform an incremental
-print "Do an incremental backup:\n";
-backup('incr');
+# Perform a differential
+print "Do a differential backup:\n";
+backup('diff');
 execute('DB SIZE', 'du -sh db');
 execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}");
 execute('BACKUP SIZE', "du -sh repo/backup/${strStanza}");
-execute('SHOW ARCHIVE', "ls -lah repo/archive/${strStanza}/0000000100000000");
-execute('ARCHIVE SIZE', "du -sh repo/archive/${strStanza}", true);
+execute('SHOW ARCHIVE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1/0000000100000000");
+execute('ARCHIVE SIZE', "du -sh repo/archive/${strStanza}/${strDbVersion}-1", true);
 
 # Do a release
-print "Release time - let's set a restore point so we can rollback if needed:\n";
-backup('diff');
+print "Release time - let's backup and set a restore point so we can rollback if needed:\n";
+backup('incr');
 execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}");
 psql('INSERT BEFORE MESSAGE', "insert into test values ('before release')");
 psql('CREATE RESTORE POINT', "select pg_create_restore_point('release')");
@@ -248,8 +305,8 @@ restore('name', 'release', undef);
 execute('SHOW RECOVERY.CONF', 'more db/recovery.conf');
 cluster_start('db');
 psql('GET MESSAGE', 'select message from test');
-execute('SHOW NEW TIMELINE', "ls -lah repo/archive/${strStanza}");
-execute('SHOW NEW TIMELINE INFO', "more repo/archive/${strStanza}/00000002.history");
+execute('SHOW NEW TIMELINE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1");
+execute('SHOW NEW TIMELINE INFO', "more repo/archive/${strStanza}/${strDbVersion}-1/00000002.history");
 psql('INSERT AFTER MESSAGE', "update test set message = 'very important update'", true);
 
 # Restore to default
@@ -260,13 +317,20 @@ cluster_start('db');
 psql('GET MESSAGE', 'select message from test', true);
 
 # Follow timeline 2
-print "Uh oh - what about that 'very important update' we did?.  Rollback the undo of the rollback:\n";
+print "Uh oh - what about the 'very important update' that happened?.  Rollback the undo of the rollback:\n";
 cluster_stop('db');
 restore(undef, undef, 2);
 cluster_start('db');
 psql('GET MESSAGE', 'select message from test', true);
 
+# Text info
+info(undef, true);
+
+# JSON info
+info('json', true);
+
 # Demo complete!
 print "Stop the cluster:\n";
 cluster_drop("db");
+execute('DELETE CONF', "rm ${strConfFileName}");
 print "\nDemo Complete!\n";
