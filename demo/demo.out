@@ -1,11 +1,13 @@
-PgCon 2015 PgBackRest Demo
+pgBackRest Demo
 
 Setup the cluster and repo:
 
+STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast
+
 CREATE DB DIR: mkdir db
 
-CREATE CLUSTER: initdb -D db -A trust
-The files belonging to this database system will be owned by user "dsteele".
+CREATE CLUSTER: /usr/lib/postgresql/9.4/bin/initdb -D db -A trust
+The files belonging to this database system will be owned by user "vagrant".
 This user must also own the server process.
 
 The database cluster will be initialized with locale "en_US.UTF-8".
@@ -18,6 +20,7 @@ fixing permissions on existing directory db ... ok
 creating subdirectories ... ok
 selecting default max_connections ... 100
 selecting default shared_buffers ... 128MB
+selecting dynamic shared memory implementation ... posix
 creating configuration files ... ok
 creating template1 database in db/base/1 ... ok
 initializing pg_authid ... ok
@@ -37,25 +40,22 @@ syncing data to disk ... ok
 
 Success. You can now start the database server using:
 
-    postgres -D db
+    /usr/lib/postgresql/9.4/bin/postgres -D db
 or
-    pg_ctl -D db -l logfile start
+    /usr/lib/postgresql/9.4/bin/pg_ctl -D db -l logfile start
 
 
-START CLUSTER: pg_ctl start -o "-c port=5500 -c archive_mode=on -c wal_level=archive -c archive_command='/Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+START CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl start -o "-c archive_mode=on -c wal_level=archive -c archive_command='pg_backrest --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
 
-CREATE TABLE: echo "create table test (message text)" | psql --port=5500 postgres
+CREATE TABLE: echo "create table test (message text)" | psql postgres
 CREATE TABLE
 
-SHOW CONF: cat /Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf
-[global:command]
-cmd-psql=psql -X --port=5500
-
+SHOW CONF: cat /etc/pg_backrest.conf
 [global:general]
-repo-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/repo
+repo-path=/home/vagrant/repo
 
 [main]
-db-path=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/db
+db-path=/home/vagrant/db
 
 CREATE REPO: mkdir repo
 
@@ -63,188 +63,191 @@ CREATE REPO: mkdir repo
 
 Do a full backup:
 
-BACKUP TYPE=FULL: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main --type=full backup
+BACKUP TYPE=FULL: pg_backrest --stanza=main --type=full backup
 
 DB SIZE: du -sh db
- 51M	db
+52M	db
 
 SHOW BACKUP: ls -lah repo/backup/main
-total 16
-drwxr-xr-x+ 5 dsteele  staff   170B Jun 18 09:21 .
-drwxr-xr-x+ 3 dsteele  staff   102B Jun 18 09:21 ..
-drwxr-xr-x+ 4 dsteele  staff   136B Jun 18 09:21 20150618-092130F
--rw-r--r--+ 1 dsteele  staff   1.4K Jun 18 09:21 backup.info
-lrwxr-xr-x  1 dsteele  staff    16B Jun 18 09:21 latest -> 20150618-092130F
+total 16K
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 .
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F
+-rw-r----- 1 vagrant vagrant 1.5K Oct 29 11:31 backup.info
+lrwxrwxrwx 1 vagrant vagrant   16 Oct 29 11:31 latest -> 20151029-113141F
 
 BACKUP SIZE: du -sh repo/backup/main
-4.9M	repo/backup/main
+5.2M	repo/backup/main
 
 BACKUP INFO: more repo/backup/main/backup.info
 [backrest]
-backrest-checksum="5c8037491c461a04ac7b98552fe71459884cac58"
+backrest-checksum="3785a34e61492e693b232204e1a3917893b7368d"
 backrest-format=4
-backrest-version="0.75"
+backrest-version="0.85"
 
 [backup:current]
-20150618-092130F={"backrest-format":4,"backrest-version":"0.75","backup-archive-start":"000000010000000000000002","backup-archive-stop":"000000010000000000000002","backup-info-repo-size":2411636,"backup-info-repo-size-delta":2411636,"backup-info-size":19885065,"backup-info-size-delta":19885065,"backup-timestamp-start":1434633685,"backup-timestamp-stop":1434633690,"backup-type":"full","db-id":1,"option-archive-check":true,"option-archive-copy":false,"option-compress":true,"option-hardlink":false,"option-start-stop":true}
+20151029-113141F={"backrest-format":4,"backrest-version":"0.85","backup-archive-start":"000000010000000000000002","backup-archive-stop":"000000010000000000000002","backup-info-repo-size":2502167,"backup-info-repo-size-delta":2502167,"backup-info-size":20370921,"backup-info-size-delta":20370921,"backup-timestamp-start":1446118292,"backup-timestamp-stop":1446118301,"backup-type":"full","db-id":1,"option-archive-check":true,"option-archive-copy":false,"option-compress":true,"option-hardlink":false,"option-start-stop":true}
 
 [backup:history]
-20150618-092130F={"backrest-format":4,"backrest-version":"0.75","backup-archive-start":"000000010000000000000002","backup-archive-stop":"000000010000000000000002","backup-info-repo-size":2411636,"backup-info-repo-size-delta":2411636,"backup-info-size":19885065,"backup-info-size-delta":19885065,"backup-timestamp-start":1434633685,"backup-timestamp-stop":1434633690,"backup-type":"full","db-id":1,"option-archive-check":true,"option-archive-copy":false,"option-compress":true,"option-hardlink":false,"option-start-stop":true}
+20151029-113141F={"backrest-format":4,"backrest-version":"0.85","backup-archive-start":"000000010000000000000002","backup-archive-stop":"000000010000000000000002","backup-info-repo-size":2502167,"backup-info-repo-size-delta":2502167,"backup-info-size":20370921,"backup-info-size-delta":20370921,"backup-timestamp-start":1446118292,"backup-timestamp-stop":1446118301,"backup-type":"full","db-id":1,"option-archive-check":true,"option-archive-copy":false,"option-compress":true,"option-hardlink":false,"option-start-stop":true}
 
 [db]
-db-catalog-version=201306121
-db-control-version=937
+db-catalog-version=201409291
+db-control-version=942
 db-id=1
-db-system-id=6161704743069808637
-db-version="9.3"
+db-system-id=6211030761463374229
+db-version="9.4"
 
 [db:history]
-1={"db-catalog-version":201306121,"db-control-version":937,"db-system-id":6161704743069808637,"db-version":"9.3"}
+1={"db-catalog-version":201409291,"db-control-version":942,"db-system-id":6211030761463374229,"db-version":"9.4"}
 
 [press enter]
 
 
-SHOW ARCHIVE: ls -lah repo/archive/main/9.3-1/0000000100000000
-total 3880
-drwx------+ 5 dsteele  staff   170B Jun 18 09:21 .
-drwx------+ 3 dsteele  staff   102B Jun 18 09:21 ..
--rw-------+ 1 dsteele  staff   1.9M Jun 18 09:21 000000010000000000000001-b94f5404b2d356a74ab5a78bc3d337bd685a620b.gz
--rw-------+ 1 dsteele  staff    16K Jun 18 09:21 000000010000000000000002-a4fdce14278ce9424268580eb0a09ef1a0bb76fe.gz
--rw-------+ 1 dsteele  staff   330B Jun 18 09:21 000000010000000000000002.00000028.backup
+SHOW ARCHIVE: ls -lah repo/archive/main/9.4-1/0000000100000000
+total 1.8M
+drwxr-x--- 2 vagrant vagrant 4.0K Oct 29 11:31 .
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
+-rw-r----- 1 vagrant vagrant 1.8M Oct 29 11:31 000000010000000000000001-9cca97005d7bc7b40d9bb821ac766e8b36c8a034.gz
+-rw-r----- 1 vagrant vagrant  330 Oct 29 11:31 000000010000000000000002.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Oct 29 11:31 000000010000000000000002-062940223ed3fb81ac5ce963123428aeae6f20df.gz
 
-ARCHIVE SIZE: du -sh repo/archive/main/9.3-1
-1.9M	repo/archive/main/9.3-1
+ARCHIVE SIZE: du -sh repo/archive/main/9.4-1
+1.8M	repo/archive/main/9.4-1
 
 ARCHIVE INFO: more repo/archive/main/archive.info
 [backrest]
-backrest-checksum="5515499c4387d0e5eb150ec953eb85a49921f3ae"
+backrest-checksum="b9350ff865563f8ba6a92b50bc59648fc21c1d34"
 backrest-format=4
-backrest-version="0.75"
+backrest-version="0.85"
 
 [db]
 db-id=1
-db-system-id=6161704743069808637
-db-version="9.3"
+db-system-id=6211030761463374229
+db-version="9.4"
 
 [db:history]
-1={"db-id":6161704743069808637,"db-version":"9.3"}
+1={"db-id":6211030761463374229,"db-version":"9.4"}
 
 [press enter]
 
 Do a differential backup:
 
-BACKUP TYPE=DIFF: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main --type=diff backup
+BACKUP TYPE=DIFF: pg_backrest --stanza=main --type=diff backup
 
 DB SIZE: du -sh db
- 67M	db
+68M	db
 
 SHOW BACKUP: ls -lah repo/backup/main
-total 16
-drwxr-xr-x+ 6 dsteele  staff   204B Jun 18 09:21 .
-drwxr-xr-x+ 3 dsteele  staff   102B Jun 18 09:21 ..
-drwxr-xr-x+ 4 dsteele  staff   136B Jun 18 09:21 20150618-092130F
-drwxr-xr-x+ 4 dsteele  staff   136B Jun 18 09:21 20150618-092130F_20150618-092133D
--rw-r--r--+ 1 dsteele  staff   2.6K Jun 18 09:21 backup.info
-lrwxr-xr-x  1 dsteele  staff    33B Jun 18 09:21 latest -> 20150618-092130F_20150618-092133D
+total 20K
+drwxr-x--- 4 vagrant vagrant 4.0K Oct 29 11:31 .
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F_20151029-113144D
+-rw-r----- 1 vagrant vagrant 2.7K Oct 29 11:31 backup.info
+lrwxrwxrwx 1 vagrant vagrant   33 Oct 29 11:31 latest -> 20151029-113141F_20151029-113144D
 
 BACKUP SIZE: du -sh repo/backup/main
-5.1M	repo/backup/main
+5.3M	repo/backup/main
 
-SHOW ARCHIVE: ls -lah repo/archive/main/9.3-1/0000000100000000
-total 3928
-drwx------+ 7 dsteele  staff   238B Jun 18 09:21 .
-drwx------+ 3 dsteele  staff   102B Jun 18 09:21 ..
--rw-------+ 1 dsteele  staff   1.9M Jun 18 09:21 000000010000000000000001-b94f5404b2d356a74ab5a78bc3d337bd685a620b.gz
--rw-------+ 1 dsteele  staff    16K Jun 18 09:21 000000010000000000000002-a4fdce14278ce9424268580eb0a09ef1a0bb76fe.gz
--rw-------+ 1 dsteele  staff   330B Jun 18 09:21 000000010000000000000002.00000028.backup
--rw-------+ 1 dsteele  staff    16K Jun 18 09:21 000000010000000000000003-8eb016d8e0dd20323717650d961601308b031e47.gz
--rw-------+ 1 dsteele  staff   330B Jun 18 09:21 000000010000000000000003.00000028.backup
+SHOW ARCHIVE: ls -lah repo/archive/main/9.4-1/0000000100000000
+total 1.8M
+drwxr-x--- 2 vagrant vagrant 4.0K Oct 29 11:31 .
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
+-rw-r----- 1 vagrant vagrant 1.8M Oct 29 11:31 000000010000000000000001-9cca97005d7bc7b40d9bb821ac766e8b36c8a034.gz
+-rw-r----- 1 vagrant vagrant  330 Oct 29 11:31 000000010000000000000002.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Oct 29 11:31 000000010000000000000002-062940223ed3fb81ac5ce963123428aeae6f20df.gz
+-rw-r----- 1 vagrant vagrant  330 Oct 29 11:31 000000010000000000000003.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Oct 29 11:31 000000010000000000000003-20ea4b9accea0f88fd14d16a8f8f432b9d8f68be.gz
 
-ARCHIVE SIZE: du -sh repo/archive/main/9.3-1
-1.9M	repo/archive/main/9.3-1
+ARCHIVE SIZE: du -sh repo/archive/main/9.4-1
+1.8M	repo/archive/main/9.4-1
 
 [press enter]
 
 Release time - let's backup and set a restore point so we can rollback if needed:
 
-BACKUP TYPE=INCR: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main --type=incr backup
+BACKUP TYPE=INCR: pg_backrest --stanza=main --type=incr backup
 
 SHOW BACKUP: ls -lah repo/backup/main
-total 16
-drwxr-xr-x+ 7 dsteele  staff   238B Jun 18 09:21 .
-drwxr-xr-x+ 3 dsteele  staff   102B Jun 18 09:21 ..
-drwxr-xr-x+ 4 dsteele  staff   136B Jun 18 09:21 20150618-092130F
-drwxr-xr-x+ 4 dsteele  staff   136B Jun 18 09:21 20150618-092130F_20150618-092133D
-drwxr-xr-x+ 4 dsteele  staff   136B Jun 18 09:21 20150618-092130F_20150618-092136I
--rw-r--r--+ 1 dsteele  staff   3.8K Jun 18 09:21 backup.info
-lrwxr-xr-x  1 dsteele  staff    33B Jun 18 09:21 latest -> 20150618-092130F_20150618-092136I
+total 24K
+drwxr-x--- 5 vagrant vagrant 4.0K Oct 29 11:31 .
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F_20151029-113144D
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F_20151029-113147I
+-rw-r----- 1 vagrant vagrant 3.9K Oct 29 11:31 backup.info
+lrwxrwxrwx 1 vagrant vagrant   33 Oct 29 11:31 latest -> 20151029-113141F_20151029-113147I
 
-INSERT BEFORE MESSAGE: echo "insert into test values ('before release')" | psql --port=5500 postgres
+INSERT BEFORE MESSAGE: echo "insert into test values ('before release')" | psql postgres
 INSERT 0 1
 
-CREATE RESTORE POINT: echo "select pg_create_restore_point('release')" | psql --port=5500 postgres
+CREATE RESTORE POINT: echo "select pg_create_restore_point('release')" | psql postgres
  pg_create_restore_point 
 -------------------------
- 0/5001FE0
+ 0/5002098
 (1 row)
 
 DO THE RELEASE!
 
-INSERT AFTER MESSAGE: echo "update test set message = 'after release'" | psql --port=5500 postgres
+INSERT AFTER MESSAGE: echo "update test set message = 'after release'" | psql postgres
 UPDATE 1
 
 [press enter]
 
 QA says the release is no good - please rollback:
 
-RESTORE TYPE=NAME TARGET=release: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main --type=name --target=release --delta restore
-2015-06-18 09:21:36.607 T00  ERROR: [113]: unable to restore while Postgres is running
+RESTORE TYPE=NAME TARGET=release: pg_backrest --stanza=main --type=name --target=release --delta restore
+2015-10-29 11:31:47.843 T00  ERROR: [113]: unable to restore while Postgres is running
 
 [press enter]
 
 Forgot to stop the database - try again:
 
-STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
+STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast
 
-RESTORE TYPE=NAME TARGET=release: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main --type=name --target=release --delta restore
+RESTORE TYPE=NAME TARGET=release: pg_backrest --stanza=main --type=name --target=release --delta restore
 
 SHOW RECOVERY.CONF: more db/recovery.conf
-restore_command = '/Users/dsteele/Documents/Code/backrest/bin/pg_backrest --config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf --stanza=main archive-get %f "%p"'
+restore_command = '/usr/bin/pg_backrest --stanza=main archive-get %f "%p"'
 recovery_target_name = 'release'
 
-START CLUSTER: pg_ctl start -o "-c port=5500 -c archive_mode=on -c wal_level=archive -c archive_command='/Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+START CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl start -o "-c archive_mode=on -c wal_level=archive -c archive_command='pg_backrest --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
 
-GET MESSAGE: echo "select message from test" | psql --port=5500 postgres
+GET MESSAGE: echo "select message from test" | psql postgres
     message     
 ----------------
  before release
 (1 row)
 
 
-SHOW NEW TIMELINE: ls -lah repo/archive/main/9.3-1
-total 8
-drwx------+  4 dsteele  staff   136B Jun 18 09:21 .
-drwx------+  4 dsteele  staff   136B Jun 18 09:21 ..
-drwx------+ 10 dsteele  staff   340B Jun 18 09:21 0000000100000000
--rw-------+  1 dsteele  staff    39B Jun 18 09:21 00000002.history
+SHOW NEW TIMELINE: ls -lah repo/archive/main/9.4-1
+total 16K
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 .
+drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
+drwxr-x--- 2 vagrant vagrant 4.0K Oct 29 11:31 0000000100000000
+-rw-r----- 1 vagrant vagrant   39 Oct 29 11:31 00000002.history
 
-SHOW NEW TIMELINE INFO: more repo/archive/main/9.3-1/00000002.history
-1	0/5001F78	at restore point "release"
+SHOW NEW TIMELINE INFO: more repo/archive/main/9.4-1/00000002.history
+1	0/5002098	at restore point "release"
 
-INSERT AFTER MESSAGE: echo "update test set message = 'very important update'" | psql --port=5500 postgres
+INSERT AFTER MESSAGE: echo "update test set message = 'very important update'" | psql postgres
 UPDATE 1
 
 [press enter]
 
 QA made a mistake, the release is good!  Please undo the rollback:
 
-STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
+STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast
 
-RESTORE TYPE=DEFAULT: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main --delta restore
+RESTORE TYPE=DEFAULT: pg_backrest --stanza=main --delta restore
 
-START CLUSTER: pg_ctl start -o "-c port=5500 -c archive_mode=on -c wal_level=archive -c archive_command='/Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+SHOW RECOVERY.CONF: more db/recovery.conf
+restore_command = '/usr/bin/pg_backrest --stanza=main archive-get %f "%p"'
 
-GET MESSAGE: echo "select message from test" | psql --port=5500 postgres
+START CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl start -o "-c archive_mode=on -c wal_level=archive -c archive_command='pg_backrest --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+
+GET MESSAGE: echo "select message from test" | psql postgres
     message    
 ---------------
  after release
@@ -253,15 +256,19 @@ GET MESSAGE: echo "select message from test" | psql --port=5500 postgres
 
 [press enter]
 
-Uh oh - what about the 'very important update' that happened?.  Rollback the undo of the rollback:
+Uh oh - what about the 'very important update' that happened?.  Rollback the undo of the rollback (probably best to do this on another system):
 
-STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
+STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast
 
-RESTORE TYPE=DEFAULT TIMELINE=2: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main --target-timeline=2 --delta restore
+RESTORE TYPE=DEFAULT TIMELINE=2: pg_backrest --stanza=main --target-timeline=2 --delta restore
 
-START CLUSTER: pg_ctl start -o "-c port=5500 -c archive_mode=on -c wal_level=archive -c archive_command='/Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+SHOW RECOVERY.CONF: more db/recovery.conf
+restore_command = '/usr/bin/pg_backrest --stanza=main archive-get %f "%p"'
+recovery_target_timeline = '2'
 
-GET MESSAGE: echo "select message from test" | psql --port=5500 postgres
+START CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl start -o "-c archive_mode=on -c wal_level=archive -c archive_command='pg_backrest --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
+
+GET MESSAGE: echo "select message from test" | psql postgres
         message        
 -----------------------
  very important update
@@ -271,18 +278,18 @@ GET MESSAGE: echo "select message from test" | psql --port=5500 postgres
 [press enter]
 
 
-INFO OUTPUT=TEXT: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main info
+INFO OUTPUT=TEXT: pg_backrest --stanza=main info
 stanza main
     status: ok
-    oldest backup label: 20150618-092130F
-    oldest backup timestamp: 2015-06-18 09:21:52
-    latest backup label: 20150618-092130F_20150618-092136I
-    latest backup timestamp: 2015-06-18 09:21:52
+    oldest backup label: 20151029-113141F
+    oldest backup timestamp: 2015-10-29 11:31:32
+    latest backup label: 20151029-113141F_20151029-113147I
+    latest backup timestamp: 2015-10-29 11:31:44
 
 [press enter]
 
 
-INFO OUTPUT=JSON: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--config=/Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf" --stanza=main --output=json info
+INFO OUTPUT=JSON: pg_backrest --stanza=main --output=json info
 [
     {
         "backup" : [
@@ -293,25 +300,25 @@ INFO OUTPUT=JSON: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--conf
                 },
                 "backrest" : {
                     "format" : 4,
-                    "version" : "0.75"
+                    "version" : "0.85"
                 },
                 "database" : {
                     "id" : 1
                 },
                 "info" : {
-                    "delta" : 19885065,
+                    "delta" : 20370921,
                     "repository" : {
-                        "delta" : 2411636,
-                        "size" : 2411636
+                        "delta" : 2502167,
+                        "size" : 2502167
                     },
-                    "size" : 19885065
+                    "size" : 20370921
                 },
-                "label" : "20150618-092130F",
+                "label" : "20151029-113141F",
                 "prior" : null,
                 "reference" : null,
                 "timestamp" : {
-                    "start" : 1434633685,
-                    "stop" : 1434633690
+                    "start" : 1446118292,
+                    "stop" : 1446118301
                 },
                 "type" : "full"
             },
@@ -322,7 +329,7 @@ INFO OUTPUT=JSON: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--conf
                 },
                 "backrest" : {
                     "format" : 4,
-                    "version" : "0.75"
+                    "version" : "0.85"
                 },
                 "database" : {
                     "id" : 1
@@ -330,19 +337,19 @@ INFO OUTPUT=JSON: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--conf
                 "info" : {
                     "delta" : 8426,
                     "repository" : {
-                        "delta" : 139647,
-                        "size" : 2435334
+                        "delta" : 142253,
+                        "size" : 2525988
                     },
-                    "size" : 19885065
+                    "size" : 20370921
                 },
-                "label" : "20150618-092130F_20150618-092133D",
-                "prior" : "20150618-092130F",
+                "label" : "20151029-113141F_20151029-113144D",
+                "prior" : "20151029-113141F",
                 "reference" : [
-                    "20150618-092130F"
+                    "20151029-113141F"
                 ],
                 "timestamp" : {
-                    "start" : 1434633690,
-                    "stop" : 1434633693
+                    "start" : 1446118301,
+                    "stop" : 1446118304
                 },
                 "type" : "diff"
             },
@@ -353,7 +360,7 @@ INFO OUTPUT=JSON: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--conf
                 },
                 "backrest" : {
                     "format" : 4,
-                    "version" : "0.75"
+                    "version" : "0.85"
                 },
                 "database" : {
                     "id" : 1
@@ -361,19 +368,19 @@ INFO OUTPUT=JSON: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--conf
                 "info" : {
                     "delta" : 8426,
                     "repository" : {
-                        "delta" : 139661,
-                        "size" : 2435348
+                        "delta" : 142271,
+                        "size" : 2526006
                     },
-                    "size" : 19885065
+                    "size" : 20370921
                 },
-                "label" : "20150618-092130F_20150618-092136I",
-                "prior" : "20150618-092130F_20150618-092133D",
+                "label" : "20151029-113141F_20151029-113147I",
+                "prior" : "20151029-113141F_20151029-113144D",
                 "reference" : [
-                    "20150618-092130F"
+                    "20151029-113141F"
                 ],
                 "timestamp" : {
-                    "start" : 1434633693,
-                    "stop" : 1434633696
+                    "start" : 1446118304,
+                    "stop" : 1446118307
                 },
                 "type" : "incr"
             }
@@ -381,8 +388,8 @@ INFO OUTPUT=JSON: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--conf
         "db" : [
             {
                 "id" : "1",
-                "system-id" : 6161704743069808637,
-                "version" : "9.3"
+                "system-id" : 6211030761463374229,
+                "version" : "9.4"
             }
         ],
         "name" : "main",
@@ -393,12 +400,5 @@ INFO OUTPUT=JSON: /Users/dsteele/Documents/Code/backrest/bin/pg_backrest "--conf
     }
 ]
 
-[press enter]
-
-Stop the cluster:
-
-STOP CLUSTER: pg_ctl stop -D db -w -s -m fast
-
-DELETE CONF: rm /Users/dsteele/Documents/Conference/HeavyDutyPgBackRest/demo/pg_backrest.conf
 
 Demo Complete!

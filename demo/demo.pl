@@ -6,11 +6,10 @@ use strict;
 use warnings FATAL => qw(all);
 use Carp qw(confess);
 
-use IPC::System::Simple qw(capture);
 use File::Path qw(remove_tree);
 use Term::ReadKey qw(ReadMode ReadKey);
 use File::Basename qw(dirname);
-use Cwd qw(abs_path);
+use Cwd qw(cwd);
 use Getopt::Long qw(GetOptions);
 
 ####################################################################################################################################
@@ -18,14 +17,12 @@ use Getopt::Long qw(GetOptions);
 #
 # Modify these variables to match your installation in order to run the demo.
 ####################################################################################################################################
-# Fully-qualified path to pg_backrest.pl
-my $strBackRestBin = "/Users/dsteele/Documents/Code/backrest/bin/pg_backrest";
+# Fully-qualified path to pg_backrest exe
+my $strBackRestBin = "pg_backrest";
 
-# Version of Postgres that is on the default path (pg_ctl esp.)
-my $strDbVersion = '9.3';
-
-# Port to run the demo cluster on
-my $iPort = 5500;
+# Configure Postgres
+my $strDbVersion = '9.4';
+my $strDbPath = "/usr/lib/postgresql/${strDbVersion}/bin";
 
 ####################################################################################################################################
 # GLOBAL VARIABLES
@@ -37,8 +34,8 @@ use constant
 };
 
 my $strStanza = 'main';
-my $strConfFileName = dirname(abs_path($0)) . '/pg_backrest.conf';
-my $strCommonParam = "\"--config=${strConfFileName}\" --stanza=${strStanza}";
+my $strConfFileName = '/etc/pg_backrest.conf';
+my $strCommonParam = "--stanza=${strStanza}";
 
 ####################################################################################################################################
 # Options
@@ -60,15 +57,7 @@ sub execute
 
     if (defined($strWhat))
     {
-        my $strCommandLog = $strCommand;
-
-        if (!$bNoWait)
-        {
-            $strCommandLog =~ s/$strBackRestBin/pg_backrest/;
-            $strCommandLog =~ s/ \"--config=${strConfFileName}\"//;
-        }
-
-        print "\n$strWhat: $strCommandLog";
+        print "\n$strWhat: $strCommand";
     }
 
     print "\n";
@@ -102,7 +91,7 @@ sub cluster_stop
     if (-e $strPath)
     {
         # Attempt to stop the cluster
-        execute("STOP CLUSTER", "pg_ctl stop -D $strPath -w -s -m fast");
+        execute("STOP CLUSTER", "${strDbPath}/pg_ctl stop -D $strPath -w -s -m fast");
     }
 }
 
@@ -134,8 +123,9 @@ sub cluster_start
     my $strPath = shift;
     my $bWait = shift;
 
-    execute("START CLUSTER", "pg_ctl start -o \"-c port=$iPort -c archive_mode=on -c wal_level=archive" .
+    execute("START CLUSTER", "${strDbPath}/pg_ctl start -o \"-c archive_mode=on -c wal_level=archive" .
                              " -c archive_command='$strBackRestBin $strCommonParam archive-push %p'" .
+                            #  " -c unix_socket_directories=/tmp" .
                              "\" -D $strPath -l $strPath/postgresql.log -w -s", defined($bWait) && $bWait);
 }
 
@@ -145,7 +135,7 @@ sub cluster_create
     my $bWait = shift;
 
     execute("CREATE DB DIR", "mkdir $strPath");
-    execute("CREATE CLUSTER", "initdb -D $strPath -A trust");
+    execute("CREATE CLUSTER", "${strDbPath}/initdb -D $strPath -A trust");
     cluster_start($strPath, $bWait);
 }
 
@@ -158,7 +148,7 @@ sub psql
     my $strSql = shift;
     my $bWait = shift;
 
-    my $strCommand = "echo \"$strSql\" | psql --port=$iPort postgres";
+    my $strCommand = "echo \"$strSql\" | psql postgres";
 
     execute($strWhat, $strCommand, $bWait);
 }
@@ -228,9 +218,9 @@ sub write_conf
     open($hFile, '>', $strConfFileName)
         or confess "unable to open ${strConfFileName}";
 
-    syswrite($hFile, "[global:command]\ncmd-psql=psql -X --port=${iPort}\n");
-    syswrite($hFile, "\n[global:general]\nrepo-path=" . dirname(abs_path($0)) . "/repo\n");
-    syswrite($hFile, "\n[${strStanza}]\ndb-path=" . dirname(abs_path($0)) . "/db\n");
+    syswrite($hFile, "[global:general]\nrepo-path=" . cwd() . "/repo");
+    syswrite($hFile, "\n\n[${strStanza}]\ndb-path=" . cwd() . "/db");
+    syswrite($hFile, "\n");
 
     close($hFile);
 }
@@ -238,7 +228,7 @@ sub write_conf
 ####################################################################################################################################
 # MAIN
 ####################################################################################################################################
-print "PgCon 2015 PgBackRest Demo\n\n";
+print "pgBackRest Demo\n\n";
 
 print "Setup the cluster and repo:\n";
 
@@ -313,13 +303,16 @@ psql('INSERT AFTER MESSAGE', "update test set message = 'very important update'"
 print "QA made a mistake, the release is good!  Please undo the rollback:\n";
 cluster_stop('db');
 restore(undef, undef, undef);
+execute('SHOW RECOVERY.CONF', 'more db/recovery.conf');
 cluster_start('db');
 psql('GET MESSAGE', 'select message from test', true);
 
 # Follow timeline 2
-print "Uh oh - what about the 'very important update' that happened?.  Rollback the undo of the rollback:\n";
+print "Uh oh - what about the 'very important update' that happened?.  Rollback the undo of the rollback" .
+      " (probably best to do this on another system):\n";
 cluster_stop('db');
 restore(undef, undef, 2);
+execute('SHOW RECOVERY.CONF', 'more db/recovery.conf');
 cluster_start('db');
 psql('GET MESSAGE', 'select message from test', true);
 
@@ -327,10 +320,7 @@ psql('GET MESSAGE', 'select message from test', true);
 info(undef, true);
 
 # JSON info
-info('json', true);
+info('json');
 
 # Demo complete!
-print "Stop the cluster:\n";
-cluster_drop("db");
-execute('DELETE CONF', "rm ${strConfFileName}");
-print "\nDemo Complete!\n";
+print "\n\nDemo Complete!\n";
