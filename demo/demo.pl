@@ -46,6 +46,18 @@ GetOptions ('no-wait' => \$bNoWait)
     or exit 1;
 
 ####################################################################################################################################
+# screenClear
+####################################################################################################################################
+sub screenClear
+{
+    if (!$bNoWait)
+    {
+        syswrite(*STDOUT, "\033[2J");   #clear the screen
+        syswrite(*STDOUT, "\033[0;0H"); #jump to 0,0
+    }
+}
+
+####################################################################################################################################
 # EXECUTE
 ####################################################################################################################################
 sub execute
@@ -57,26 +69,48 @@ sub execute
 
     if (defined($strWhat))
     {
-        print "\n$strWhat: $strCommand";
+        syswrite(*STDOUT, "\n$strWhat: $strCommand");
     }
 
-    print "\n";
+    syswrite(*STDOUT, "\n");
 
     die confess "unable to execute: $strCommand"
         if system($strCommand) != 0 && (!defined($bExpectError) || !$bExpectError);
 
     if (defined($bWait) && $bWait)
     {
-        print "\n[press enter]";
-
-        if (!$bNoWait)
+        if ($bNoWait)
         {
-            ReadMode(2);
-            ReadKey(0);
-            ReadMode(0);
+            syswrite(*STDOUT, "\n");
+            # syswrite(*STDOUT, "\n--------------------------------------------------------------------------------\n\n");
         }
+        else
+        {
+            my $cChar;
 
-        print "\n\n";
+            ReadMode(3);
+
+            # Clear any previous characters
+            do
+            {
+                $cChar = ReadKey(-1);
+            }
+            while (defined($cChar));
+
+            syswrite(*STDOUT, "\n[press enter]");
+
+            # Read the next char
+            do
+            {
+                $cChar = ReadKey(1000);
+            }
+            while (!defined($cChar));
+
+            ReadMode(0);
+
+            syswrite(*STDOUT, "\n");
+            screenClear();
+        }
     }
 }
 
@@ -91,7 +125,7 @@ sub cluster_stop
     if (-e $strPath)
     {
         # Attempt to stop the cluster
-        execute("STOP CLUSTER", "${strDbPath}/pg_ctl stop -D $strPath -w -s -m fast");
+        execute("STOP CLUSTER", "${strDbPath}/pg_ctl stop -D $strPath -w -s -m fast > /dev/null");
     }
 }
 
@@ -110,7 +144,7 @@ sub cluster_drop
 
         if ($@)
         {
-            print "OUTPUT: $@";
+            syswrite(*STDOUT, "OUTPUT: $@");
         }
 
         # Remove the db directory
@@ -135,7 +169,7 @@ sub cluster_create
     my $bWait = shift;
 
     execute("CREATE DB DIR", "mkdir $strPath");
-    execute("CREATE CLUSTER", "${strDbPath}/initdb -D $strPath -A trust");
+    execute("CREATE CLUSTER", "${strDbPath}/initdb -D $strPath -A trust > /dev/null");
     cluster_start($strPath, $bWait);
 }
 
@@ -226,11 +260,28 @@ sub write_conf
 }
 
 ####################################################################################################################################
+# headingWrite
+####################################################################################################################################
+sub headingWrite
+{
+    my $strHeading = shift;
+
+    if ($bNoWait)
+    {
+        syswrite(*STDOUT, ('-' x (length($strHeading) + 1)) . "\n");
+    }
+
+    syswrite(*STDOUT, "${strHeading}:\n");
+    syswrite(*STDOUT, ('-' x (length($strHeading) + 1)) . "\n");
+}
+
+####################################################################################################################################
 # MAIN
 ####################################################################################################################################
-print "pgBackRest Demo\n\n";
+screenClear();
+syswrite(*STDOUT, "pgBackRest Demo\n===============\n\n");
 
-print "Setup the cluster and repo:\n";
+headingWrite('Setup the cluster and repo');
 
 # Drop the cluster if it is already running
 cluster_drop('db');
@@ -257,70 +308,74 @@ execute('SHOW CONF', "cat ${strConfFileName}");
 execute('CREATE REPO', 'mkdir repo', true);
 
 # Perform a full backup
-print "Do a full backup:\n";
-backup('full');
-execute('DB SIZE', 'du -sh db');
-execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}");
-execute('BACKUP SIZE', "du -sh repo/backup/${strStanza}");
-execute('BACKUP INFO', "more repo/backup/${strStanza}/backup.info", true);
-execute('SHOW ARCHIVE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1/0000000100000000");
-execute('ARCHIVE SIZE', "du -sh repo/archive/${strStanza}/${strDbVersion}-1");
-execute('ARCHIVE INFO', "more repo/archive/${strStanza}/archive.info", true);
+headingWrite('Perform a full backup');
+    backup('full');
+    execute('DB SIZE', 'du -sh db');
+    execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}");
+    execute('BACKUP SIZE', "du -sh repo/backup/${strStanza}", true);
 
-# Perform a differential
-print "Do a differential backup:\n";
-backup('diff');
-execute('DB SIZE', 'du -sh db');
-execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}");
-execute('BACKUP SIZE', "du -sh repo/backup/${strStanza}");
-execute('SHOW ARCHIVE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1/0000000100000000");
-execute('ARCHIVE SIZE', "du -sh repo/archive/${strStanza}/${strDbVersion}-1", true);
+headingWrite('Show archive after the full backup');
+    # execute('BACKUP INFO', "more repo/backup/${strStanza}/backup.info", true);
+    execute('SHOW ARCHIVE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1/0000000100000000");
+    execute('ARCHIVE SIZE', "du -sh repo/archive/${strStanza}/${strDbVersion}-1", true);
+    # execute('ARCHIVE INFO', "more repo/archive/${strStanza}/archive.info", true);
 
-# Do a release
-print "Release time - let's backup and set a restore point so we can rollback if needed:\n";
-backup('incr');
-execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}");
-psql('INSERT BEFORE MESSAGE', "insert into test values ('before release')");
-psql('CREATE RESTORE POINT', "select pg_create_restore_point('release')");
-print "DO THE RELEASE!\n";
-psql('INSERT AFTER MESSAGE', "update test set message = 'after release'", true);
+headingWrite('Perform a differential backup');
+    backup('diff');
+    execute('DB SIZE', 'du -sh db');
+    execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}");
+    execute('BACKUP SIZE', "du -sh repo/backup/${strStanza}", true);
 
-# Restore to restore point
-print "QA says the release is no good - please rollback:\n";
-restore('name', 'release', undef, true, true);
+headingWrite('Show archive after the differential backup');
+    execute('SHOW ARCHIVE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1/0000000100000000");
+    execute('ARCHIVE SIZE', "du -sh repo/archive/${strStanza}/${strDbVersion}-1", true);
 
-print "Forgot to stop the database - try again:\n";
-cluster_stop('db');
-restore('name', 'release', undef);
-execute('SHOW RECOVERY.CONF', 'more db/recovery.conf');
-cluster_start('db');
-psql('GET MESSAGE', 'select message from test');
-execute('SHOW NEW TIMELINE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1");
-execute('SHOW NEW TIMELINE INFO', "more repo/archive/${strStanza}/${strDbVersion}-1/00000002.history");
-psql('INSERT AFTER MESSAGE', "update test set message = 'very important update'", true);
+headingWrite('Release time - take a backup');
+    backup('incr');
+    execute('SHOW BACKUP', "ls -lah repo/backup/${strStanza}", true);
 
-# Restore to default
-print "QA made a mistake, the release is good!  Please undo the rollback:\n";
-cluster_stop('db');
-restore(undef, undef, undef);
-execute('SHOW RECOVERY.CONF', 'more db/recovery.conf');
-cluster_start('db');
-psql('GET MESSAGE', 'select message from test', true);
+headingWrite('Release time - set a restore point');
+    psql('INSERT BEFORE MESSAGE', "insert into test values ('before release')");
+    psql('CREATE RESTORE POINT', "select pg_create_restore_point('release')", true);
 
-# Follow timeline 2
-print "Uh oh - what about the 'very important update' that happened?.  Rollback the undo of the rollback" .
-      " (probably best to do this on another system):\n";
-cluster_stop('db');
-restore(undef, undef, 2);
-execute('SHOW RECOVERY.CONF', 'more db/recovery.conf');
-cluster_start('db');
-psql('GET MESSAGE', 'select message from test', true);
+headingWrite('Perform the release');
+    psql('INSERT AFTER MESSAGE', "update test set message = 'after release'", true);
 
-# Text info
-info(undef, true);
+headingWrite('QA says the release is no good - please rollback');
+    restore('name', 'release', undef, true, true);
 
-# JSON info
-info('json');
+headingWrite('Forgot to stop the database - try again');
+    cluster_stop('db');
+    restore('name', 'release', undef);
+    execute('SHOW RECOVERY.CONF', 'more db/recovery.conf', true);
 
-# Demo complete!
-print "\n\nDemo Complete!\n";
+headingWrite('Start the database and verify the recovery');
+    cluster_start('db');
+    psql('GET MESSAGE', 'select message from test');
+    execute('SHOW NEW TIMELINE', "ls -lah repo/archive/${strStanza}/${strDbVersion}-1", true);
+    # execute('SHOW NEW TIMELINE INFO', "more repo/archive/${strStanza}/${strDbVersion}-1/00000002.history");
+
+headingWrite('App is started and important data is written to the database');
+    psql('INSERT AFTER MESSAGE', "update test set message = 'very important update'", true);
+
+headingWrite('QA made a mistake, the release is good!  Please undo the rollback');
+    cluster_stop('db');
+    restore(undef, undef, undef);
+    execute('SHOW RECOVERY.CONF', 'more db/recovery.conf');
+    cluster_start('db');
+    psql('GET MESSAGE', 'select message from test', true);
+
+headingWrite("Uh oh - what about the 'very important update' that happened?");
+    cluster_stop('db');
+    restore(undef, undef, 2);
+    execute('SHOW RECOVERY.CONF', 'more db/recovery.conf');
+    cluster_start('db');
+    psql('GET MESSAGE', 'select message from test', true);
+
+headingWrite('Show basic info');
+    info(undef, true);
+
+headingWrite('Show exhaustive JSON info');
+    info('json');
+
+syswrite(*STDOUT, "\n\nDemo Complete!\n");

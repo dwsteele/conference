@@ -1,49 +1,15 @@
 pgBackRest Demo
+===============
 
+---------------------------
 Setup the cluster and repo:
+---------------------------
 
-STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast
+STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast > /dev/null
 
 CREATE DB DIR: mkdir db
 
-CREATE CLUSTER: /usr/lib/postgresql/9.4/bin/initdb -D db -A trust
-The files belonging to this database system will be owned by user "vagrant".
-This user must also own the server process.
-
-The database cluster will be initialized with locale "en_US.UTF-8".
-The default database encoding has accordingly been set to "UTF8".
-The default text search configuration will be set to "english".
-
-Data page checksums are disabled.
-
-fixing permissions on existing directory db ... ok
-creating subdirectories ... ok
-selecting default max_connections ... 100
-selecting default shared_buffers ... 128MB
-selecting dynamic shared memory implementation ... posix
-creating configuration files ... ok
-creating template1 database in db/base/1 ... ok
-initializing pg_authid ... ok
-initializing dependencies ... ok
-creating system views ... ok
-loading system objects' descriptions ... ok
-creating collations ... ok
-creating conversions ... ok
-creating dictionaries ... ok
-setting privileges on built-in objects ... ok
-creating information schema ... ok
-loading PL/pgSQL server-side language ... ok
-vacuuming database template1 ... ok
-copying template1 to template0 ... ok
-copying template1 to postgres ... ok
-syncing data to disk ... ok
-
-Success. You can now start the database server using:
-
-    /usr/lib/postgresql/9.4/bin/postgres -D db
-or
-    /usr/lib/postgresql/9.4/bin/pg_ctl -D db -l logfile start
-
+CREATE CLUSTER: /usr/lib/postgresql/9.4/bin/initdb -D db -A trust > /dev/null
 
 START CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl start -o "-c archive_mode=on -c wal_level=archive -c archive_command='pg_backrest --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
 
@@ -59,9 +25,9 @@ db-path=/home/vagrant/db
 
 CREATE REPO: mkdir repo
 
-[press enter]
-
-Do a full backup:
+----------------------
+Perform a full backup:
+----------------------
 
 BACKUP TYPE=FULL: pg_backrest --stanza=main --type=full backup
 
@@ -70,68 +36,33 @@ DB SIZE: du -sh db
 
 SHOW BACKUP: ls -lah repo/backup/main
 total 16K
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 .
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F
--rw-r----- 1 vagrant vagrant 1.5K Oct 29 11:31 backup.info
-lrwxrwxrwx 1 vagrant vagrant   16 Oct 29 11:31 latest -> 20151029-113141F
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 .
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 20151111-201045F
+-rw-r----- 1 vagrant vagrant 1.5K Nov 11 20:10 backup.info
+lrwxrwxrwx 1 vagrant vagrant   16 Nov 11 20:10 latest -> 20151111-201045F
 
 BACKUP SIZE: du -sh repo/backup/main
 5.2M	repo/backup/main
 
-BACKUP INFO: more repo/backup/main/backup.info
-[backrest]
-backrest-checksum="3785a34e61492e693b232204e1a3917893b7368d"
-backrest-format=4
-backrest-version="0.85"
-
-[backup:current]
-20151029-113141F={"backrest-format":4,"backrest-version":"0.85","backup-archive-start":"000000010000000000000002","backup-archive-stop":"000000010000000000000002","backup-info-repo-size":2502167,"backup-info-repo-size-delta":2502167,"backup-info-size":20370921,"backup-info-size-delta":20370921,"backup-timestamp-start":1446118292,"backup-timestamp-stop":1446118301,"backup-type":"full","db-id":1,"option-archive-check":true,"option-archive-copy":false,"option-compress":true,"option-hardlink":false,"option-start-stop":true}
-
-[backup:history]
-20151029-113141F={"backrest-format":4,"backrest-version":"0.85","backup-archive-start":"000000010000000000000002","backup-archive-stop":"000000010000000000000002","backup-info-repo-size":2502167,"backup-info-repo-size-delta":2502167,"backup-info-size":20370921,"backup-info-size-delta":20370921,"backup-timestamp-start":1446118292,"backup-timestamp-stop":1446118301,"backup-type":"full","db-id":1,"option-archive-check":true,"option-archive-copy":false,"option-compress":true,"option-hardlink":false,"option-start-stop":true}
-
-[db]
-db-catalog-version=201409291
-db-control-version=942
-db-id=1
-db-system-id=6211030761463374229
-db-version="9.4"
-
-[db:history]
-1={"db-catalog-version":201409291,"db-control-version":942,"db-system-id":6211030761463374229,"db-version":"9.4"}
-
-[press enter]
-
+-----------------------------------
+Show archive after the full backup:
+-----------------------------------
 
 SHOW ARCHIVE: ls -lah repo/archive/main/9.4-1/0000000100000000
 total 1.8M
-drwxr-x--- 2 vagrant vagrant 4.0K Oct 29 11:31 .
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
--rw-r----- 1 vagrant vagrant 1.8M Oct 29 11:31 000000010000000000000001-9cca97005d7bc7b40d9bb821ac766e8b36c8a034.gz
--rw-r----- 1 vagrant vagrant  330 Oct 29 11:31 000000010000000000000002.00000028.backup
--rw-r----- 1 vagrant vagrant  27K Oct 29 11:31 000000010000000000000002-062940223ed3fb81ac5ce963123428aeae6f20df.gz
+drwxr-x--- 2 vagrant vagrant 4.0K Nov 11 20:10 .
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 ..
+-rw-r----- 1 vagrant vagrant 1.8M Nov 11 20:10 000000010000000000000001-b6ee99f9232c841e2a6ec53f4f2604698446ed25.gz
+-rw-r----- 1 vagrant vagrant  330 Nov 11 20:10 000000010000000000000002.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Nov 11 20:10 000000010000000000000002-f661a7fff72ccfed93df648f5dcc074e3314bbb8.gz
 
 ARCHIVE SIZE: du -sh repo/archive/main/9.4-1
 1.8M	repo/archive/main/9.4-1
 
-ARCHIVE INFO: more repo/archive/main/archive.info
-[backrest]
-backrest-checksum="b9350ff865563f8ba6a92b50bc59648fc21c1d34"
-backrest-format=4
-backrest-version="0.85"
-
-[db]
-db-id=1
-db-system-id=6211030761463374229
-db-version="9.4"
-
-[db:history]
-1={"db-id":6211030761463374229,"db-version":"9.4"}
-
-[press enter]
-
-Do a differential backup:
+------------------------------
+Perform a differential backup:
+------------------------------
 
 BACKUP TYPE=DIFF: pg_backrest --stanza=main --type=diff backup
 
@@ -140,44 +71,52 @@ DB SIZE: du -sh db
 
 SHOW BACKUP: ls -lah repo/backup/main
 total 20K
-drwxr-x--- 4 vagrant vagrant 4.0K Oct 29 11:31 .
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F_20151029-113144D
--rw-r----- 1 vagrant vagrant 2.7K Oct 29 11:31 backup.info
-lrwxrwxrwx 1 vagrant vagrant   33 Oct 29 11:31 latest -> 20151029-113141F_20151029-113144D
+drwxr-x--- 4 vagrant vagrant 4.0K Nov 11 20:10 .
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 20151111-201045F
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 20151111-201045F_20151111-201048D
+-rw-r----- 1 vagrant vagrant 2.7K Nov 11 20:10 backup.info
+lrwxrwxrwx 1 vagrant vagrant   33 Nov 11 20:10 latest -> 20151111-201045F_20151111-201048D
 
 BACKUP SIZE: du -sh repo/backup/main
 5.3M	repo/backup/main
 
+-------------------------------------------
+Show archive after the differential backup:
+-------------------------------------------
+
 SHOW ARCHIVE: ls -lah repo/archive/main/9.4-1/0000000100000000
 total 1.8M
-drwxr-x--- 2 vagrant vagrant 4.0K Oct 29 11:31 .
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
--rw-r----- 1 vagrant vagrant 1.8M Oct 29 11:31 000000010000000000000001-9cca97005d7bc7b40d9bb821ac766e8b36c8a034.gz
--rw-r----- 1 vagrant vagrant  330 Oct 29 11:31 000000010000000000000002.00000028.backup
--rw-r----- 1 vagrant vagrant  27K Oct 29 11:31 000000010000000000000002-062940223ed3fb81ac5ce963123428aeae6f20df.gz
--rw-r----- 1 vagrant vagrant  330 Oct 29 11:31 000000010000000000000003.00000028.backup
--rw-r----- 1 vagrant vagrant  27K Oct 29 11:31 000000010000000000000003-20ea4b9accea0f88fd14d16a8f8f432b9d8f68be.gz
+drwxr-x--- 2 vagrant vagrant 4.0K Nov 11 20:10 .
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 ..
+-rw-r----- 1 vagrant vagrant 1.8M Nov 11 20:10 000000010000000000000001-b6ee99f9232c841e2a6ec53f4f2604698446ed25.gz
+-rw-r----- 1 vagrant vagrant  330 Nov 11 20:10 000000010000000000000002.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Nov 11 20:10 000000010000000000000002-f661a7fff72ccfed93df648f5dcc074e3314bbb8.gz
+-rw-r----- 1 vagrant vagrant  330 Nov 11 20:10 000000010000000000000003.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Nov 11 20:10 000000010000000000000003-c6a30f1177741fd711c86d8a8fdc1e09853ca79f.gz
 
 ARCHIVE SIZE: du -sh repo/archive/main/9.4-1
 1.8M	repo/archive/main/9.4-1
 
-[press enter]
-
-Release time - let's backup and set a restore point so we can rollback if needed:
+-----------------------------
+Release time - take a backup:
+-----------------------------
 
 BACKUP TYPE=INCR: pg_backrest --stanza=main --type=incr backup
 
 SHOW BACKUP: ls -lah repo/backup/main
 total 24K
-drwxr-x--- 5 vagrant vagrant 4.0K Oct 29 11:31 .
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F_20151029-113144D
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 20151029-113141F_20151029-113147I
--rw-r----- 1 vagrant vagrant 3.9K Oct 29 11:31 backup.info
-lrwxrwxrwx 1 vagrant vagrant   33 Oct 29 11:31 latest -> 20151029-113141F_20151029-113147I
+drwxr-x--- 5 vagrant vagrant 4.0K Nov 11 20:10 .
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 20151111-201045F
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 20151111-201045F_20151111-201048D
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 20151111-201045F_20151111-201051I
+-rw-r----- 1 vagrant vagrant 3.9K Nov 11 20:10 backup.info
+lrwxrwxrwx 1 vagrant vagrant   33 Nov 11 20:10 latest -> 20151111-201045F_20151111-201051I
+
+-----------------------------------
+Release time - set a restore point:
+-----------------------------------
 
 INSERT BEFORE MESSAGE: echo "insert into test values ('before release')" | psql postgres
 INSERT 0 1
@@ -188,29 +127,36 @@ CREATE RESTORE POINT: echo "select pg_create_restore_point('release')" | psql po
  0/5002098
 (1 row)
 
-DO THE RELEASE!
+
+--------------------
+Perform the release:
+--------------------
 
 INSERT AFTER MESSAGE: echo "update test set message = 'after release'" | psql postgres
 UPDATE 1
 
-[press enter]
-
+-------------------------------------------------
 QA says the release is no good - please rollback:
+-------------------------------------------------
 
 RESTORE TYPE=NAME TARGET=release: pg_backrest --stanza=main --type=name --target=release --delta restore
-2015-10-29 11:31:47.843 T00  ERROR: [113]: unable to restore while Postgres is running
+2015-11-11 20:10:51.746 T00  ERROR: [113]: unable to restore while Postgres is running
 
-[press enter]
-
+----------------------------------------
 Forgot to stop the database - try again:
+----------------------------------------
 
-STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast
+STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast > /dev/null
 
 RESTORE TYPE=NAME TARGET=release: pg_backrest --stanza=main --type=name --target=release --delta restore
 
 SHOW RECOVERY.CONF: more db/recovery.conf
 restore_command = '/usr/bin/pg_backrest --stanza=main archive-get %f "%p"'
 recovery_target_name = 'release'
+
+-------------------------------------------
+Start the database and verify the recovery:
+-------------------------------------------
 
 START CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl start -o "-c archive_mode=on -c wal_level=archive -c archive_command='pg_backrest --stanza=main archive-push %p'" -D db -l db/postgresql.log -w -s
 
@@ -223,22 +169,23 @@ GET MESSAGE: echo "select message from test" | psql postgres
 
 SHOW NEW TIMELINE: ls -lah repo/archive/main/9.4-1
 total 16K
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 .
-drwxr-x--- 3 vagrant vagrant 4.0K Oct 29 11:31 ..
-drwxr-x--- 2 vagrant vagrant 4.0K Oct 29 11:31 0000000100000000
--rw-r----- 1 vagrant vagrant   39 Oct 29 11:31 00000002.history
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 .
+drwxr-x--- 3 vagrant vagrant 4.0K Nov 11 20:10 ..
+drwxr-x--- 2 vagrant vagrant 4.0K Nov 11 20:10 0000000100000000
+-rw-r----- 1 vagrant vagrant   39 Nov 11 20:10 00000002.history
 
-SHOW NEW TIMELINE INFO: more repo/archive/main/9.4-1/00000002.history
-1	0/5002098	at restore point "release"
+-------------------------------------------------------------
+App is started and important data is written to the database:
+-------------------------------------------------------------
 
 INSERT AFTER MESSAGE: echo "update test set message = 'very important update'" | psql postgres
 UPDATE 1
 
-[press enter]
-
+------------------------------------------------------------------
 QA made a mistake, the release is good!  Please undo the rollback:
+------------------------------------------------------------------
 
-STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast
+STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast > /dev/null
 
 RESTORE TYPE=DEFAULT: pg_backrest --stanza=main --delta restore
 
@@ -254,11 +201,11 @@ GET MESSAGE: echo "select message from test" | psql postgres
 (1 row)
 
 
-[press enter]
+--------------------------------------------------------------
+Uh oh - what about the 'very important update' that happened?:
+--------------------------------------------------------------
 
-Uh oh - what about the 'very important update' that happened?.  Rollback the undo of the rollback (probably best to do this on another system):
-
-STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast
+STOP CLUSTER: /usr/lib/postgresql/9.4/bin/pg_ctl stop -D db -w -s -m fast > /dev/null
 
 RESTORE TYPE=DEFAULT TIMELINE=2: pg_backrest --stanza=main --target-timeline=2 --delta restore
 
@@ -275,19 +222,21 @@ GET MESSAGE: echo "select message from test" | psql postgres
 (1 row)
 
 
-[press enter]
-
+----------------
+Show basic info:
+----------------
 
 INFO OUTPUT=TEXT: pg_backrest --stanza=main info
 stanza main
     status: ok
-    oldest backup label: 20151029-113141F
-    oldest backup timestamp: 2015-10-29 11:31:32
-    latest backup label: 20151029-113141F_20151029-113147I
-    latest backup timestamp: 2015-10-29 11:31:44
+    oldest backup label: 20151111-201045F
+    oldest backup timestamp: 2015-11-11 20:10:37
+    latest backup label: 20151111-201045F_20151111-201051I
+    latest backup timestamp: 2015-11-11 20:10:48
 
-[press enter]
-
+--------------------------
+Show exhaustive JSON info:
+--------------------------
 
 INFO OUTPUT=JSON: pg_backrest --stanza=main --output=json info
 [
@@ -308,17 +257,17 @@ INFO OUTPUT=JSON: pg_backrest --stanza=main --output=json info
                 "info" : {
                     "delta" : 20370921,
                     "repository" : {
-                        "delta" : 2502167,
-                        "size" : 2502167
+                        "delta" : 2502168,
+                        "size" : 2502168
                     },
                     "size" : 20370921
                 },
-                "label" : "20151029-113141F",
+                "label" : "20151111-201045F",
                 "prior" : null,
                 "reference" : null,
                 "timestamp" : {
-                    "start" : 1446118292,
-                    "stop" : 1446118301
+                    "start" : 1447272637,
+                    "stop" : 1447272645
                 },
                 "type" : "full"
             },
@@ -342,14 +291,14 @@ INFO OUTPUT=JSON: pg_backrest --stanza=main --output=json info
                     },
                     "size" : 20370921
                 },
-                "label" : "20151029-113141F_20151029-113144D",
-                "prior" : "20151029-113141F",
+                "label" : "20151111-201045F_20151111-201048D",
+                "prior" : "20151111-201045F",
                 "reference" : [
-                    "20151029-113141F"
+                    "20151111-201045F"
                 ],
                 "timestamp" : {
-                    "start" : 1446118301,
-                    "stop" : 1446118304
+                    "start" : 1447272646,
+                    "stop" : 1447272648
                 },
                 "type" : "diff"
             },
@@ -368,19 +317,19 @@ INFO OUTPUT=JSON: pg_backrest --stanza=main --output=json info
                 "info" : {
                     "delta" : 8426,
                     "repository" : {
-                        "delta" : 142271,
-                        "size" : 2526006
+                        "delta" : 142273,
+                        "size" : 2526008
                     },
                     "size" : 20370921
                 },
-                "label" : "20151029-113141F_20151029-113147I",
-                "prior" : "20151029-113141F_20151029-113144D",
+                "label" : "20151111-201045F_20151111-201051I",
+                "prior" : "20151111-201045F_20151111-201048D",
                 "reference" : [
-                    "20151029-113141F"
+                    "20151111-201045F"
                 ],
                 "timestamp" : {
-                    "start" : 1446118304,
-                    "stop" : 1446118307
+                    "start" : 1447272648,
+                    "stop" : 1447272651
                 },
                 "type" : "incr"
             }
@@ -388,7 +337,7 @@ INFO OUTPUT=JSON: pg_backrest --stanza=main --output=json info
         "db" : [
             {
                 "id" : "1",
-                "system-id" : 6211030761463374229,
+                "system-id" : 6215988634759452993,
                 "version" : "9.4"
             }
         ],
