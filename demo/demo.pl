@@ -18,10 +18,10 @@ use Getopt::Long qw(GetOptions);
 # Modify these variables to match your installation in order to run the demo.
 ####################################################################################################################################
 # Fully-qualified path to pg_backrest exe
-my $strBackRestBin = "pg_backrest";
+my $strBackRestBin = "pgbackrest";
 
 # Configure Postgres
-my $strDbVersion = '9.4';
+my $strDbVersion = '9.5';
 my $strDbPath = "/usr/lib/postgresql/${strDbVersion}/bin";
 
 ####################################################################################################################################
@@ -34,7 +34,7 @@ use constant
 };
 
 my $strStanza = 'main';
-my $strConfFileName = '/etc/pg_backrest.conf';
+my $strConfFileName = '/etc/pgbackrest.conf';
 my $strCommonParam = "--stanza=${strStanza}";
 
 ####################################################################################################################################
@@ -252,7 +252,7 @@ sub write_conf
     open($hFile, '>', $strConfFileName)
         or confess "unable to open ${strConfFileName}";
 
-    syswrite($hFile, "[global:general]\nrepo-path=" . cwd() . "/repo");
+    syswrite($hFile, "[global]\nrepo-path=" . cwd() . "/repo");
     syswrite($hFile, "\n\n[${strStanza}]\ndb-path=" . cwd() . "/db");
     syswrite($hFile, "\n");
 

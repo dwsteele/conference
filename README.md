@@ -10,4 +10,4 @@ David Steele is Senior Data Architect at Crunchy Data Solutions, the PostgreSQL 
 
 David loves taking on big data challenges. Until recently he was Data Architect at Resonate, an online media company using PostgreSQL to drive its transactional and data warehousing databases. Before that, he helped drive global mobile text messaging at Sybase365.
 
-David's current project is pgBackRest, which will be the subject of his talk.
+David's current project is pgBackRest, which will be the subject of this talk.
