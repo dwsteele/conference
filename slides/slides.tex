@@ -2,352 +2,367 @@
 % Efficiently Backing up Terabytes of Data with pgBackRest
 %
 % Build from the Vagrant VM:
-% mkdir -p temp && cp /slides/cds-logo.eps temp/logo.eps && pdflatex -halt-on-error -output-directory=temp -shell-escape /slides/slides.tex && pdflatex -output-directory=temp -shell-escape /slides/slides.tex > /dev/null && mv temp/slides.pdf /slides
+% cd /talk/slides && make -f /template/Makefile
 % ----------------------------------------------------------------------------------------------------------------------------------
-\documentclass[hyperref={pdfpagelabels=false}]{beamer}
-\let\Tiny=\tiny
-\usetheme{Boadilla}
+\def\mytitle{Efficiently Backing up Terabytes of Data with pgBackRest}
+\def\mysubject{}
+\def\myevent{PostgresOpen 2016}
+\def\myauthor{David Steele}
+\def\myemail{}
+\def\mydate{September 14, 2016}
 
-% Allow EPS files
-\usepackage{graphicx}
-\usepackage{epstopdf}
+% Suppres navigation bars
+\def\mysuppressnav{}
 
-% Skip a line between paragraphs
-\setlength{\parskip}{1em}
+% Include Crunchy template
+\def\mytemplatepath{/template/}
+\input{\mytemplatepath crunchy-template.tex}
 
-% Used for multiline table cells
-\usepackage{pbox}
+% Agenda
+\begin{frame}
+    \frametitle{Agenda}
+    \tableofcontents
+\end{frame}
 
-% Custom colors
-% \definecolor{dkblue}{HTML}{396A93}
-% \setbeamercolor{frametitle}{fg=dkblue}
-% \setbeamercolor{itemize/enumerate body}{fg=black}
+\section{Why Backup?}
 
-% Add extra row height to keep table cells from being squished
-\usepackage{tabularx}
-\setlength{\extrarowheight}{1.25em}
+\begin{frame}
+    \frametitle{Why Backup?}
 
-% Customize footer to remove date and give more room for the title
-\makeatother
-\setbeamertemplate{footline}
-{
-  \leavevmode%
-  \hbox{%
-  \begin{beamercolorbox}[wd=.4\paperwidth,ht=2.25ex,dp=1ex,center]{institute in head/foot}%
-    \usebeamerfont{institute in head/foot}\insertshortinstitute
-  \end{beamercolorbox}%
-  \begin{beamercolorbox}[wd=.6\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
-    \usebeamerfont{title in head/foot}\insertshorttitle\hspace*{3em}
-    \insertframenumber{} / \inserttotalframenumber\hspace*{1ex}
-  \end{beamercolorbox}}%
-  \vskip0pt%
-}
-\makeatletter
-
-% Customize title page
-\defbeamertemplate*{title page}{customized}[1][]
-{
-  \center\usebeamerfont{title}\inserttitle\par
-  \usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par
-  \bigskip
-
-  \usebeamerfont{title}\textcolor{black}\insertauthor\par
-
-  \usebeamerfont{subtitle}\insertdate\par
-
-  \begin{center}
-    \inserttitlegraphic
-  \end{center}
-}
-
-% Hide navigation controls
-\setbeamertemplate{navigation symbols}{}
-
-\title{Efficiently Backing up Terabytes of Data\\
-       with pgBackRest}
-\subtitle{PGConf US 2016}
-\author{David Steele}
-\institute{Crunchy Data Solutions, Inc.}
-\date{April 20, 2016}
-
-\titlegraphic{\includegraphics[width=3in]{/home/vagrant/temp/logo}}
-
-% Begin slide deck
-\begin{document}
-
-    % Title page
-    \begin{frame}
-        \titlepage
-    \end{frame}
-
-    % Agenda
-    \begin{frame}
-        \frametitle{Agenda}
-        \tableofcontents
-    \end{frame}
-
-    \section{Why Backup?}
-
-    \begin{frame}
-        \frametitle{Why Backup?}
+    \begin{itemize}
+        \item Hardware Failure:
 
         \begin{itemize}
-            \item Hardware Failure
-
-            \begin{itemize}
-                \item No amount of redundancy can prevent it
-            \end{itemize}
-
-            \item Replication
-
-            \begin{itemize}
-                \item WAL archive for when async streaming gets behind
-                \item Sync replica from backup instead of master
-            \end{itemize}
-
-            \item Corruption
-
-            \begin{itemize}
-                \item Can be caused by hardware or software
-                \item Detection is of course a challenge
-            \end{itemize}
+            \item No amount of redundancy can prevent it.\pause
         \end{itemize}
-    \end{frame}
 
-    \begin{frame}
-        \frametitle{Why Backup?}
+        \item Replication:
 
         \begin{itemize}
-            \item Accidents
+            \item WAL archive for when async streaming gets behind.\pause
+            \item Sync replica from backup instead of master.\pause
+        \end{itemize}
 
-            \begin{itemize}
-                \item So you dropped a table?
-                \item Deleted your most important account?
-            \end{itemize}
+        \item Corruption:
 
+        \begin{itemize}
+            \item Can be caused by hardware or software.\pause
+            \item Detection is of course a challenge.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Why Backup?}
+
+    \begin{itemize}
+        \item Accidents:
+
+        \begin{itemize}
+            \item So you dropped a table?\pause
+            \item Deleted your most important account?\pause
+        \end{itemize}
+
+        \item Development:
+
+        \begin{itemize}
+            \item No more realistic data than production!\pause
+            \item May not be practical due to size / privacy issues.\pause
+        \end{itemize}
+
+        \item Reporting:
+
+        \begin{itemize}
+            \item Use backups to standup an independent reporting server.\pause
+            \item Recover important data that was removed on purpose.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\section{Living Backups}
+
+\begin{frame}
+    \frametitle{Schr\"{o}dinger’s Backup}
+
+    The state of any backup is unknown until a restore is attempted.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Making Backups Useful}
+
+    \begin{itemize}
+        \item Find a way to use your backups
+
+        \begin{itemize}
+            \item Syncing / New Replicas
+            \item Offline reporting
+            \item Offline data archiving
             \item Development
-
-            \begin{itemize}
-                \item No more realistic data than production!
-                \item May not be practical due to size / privacy issues
-            \end{itemize}
-
-            \item Reporting
-
-            \begin{itemize}
-                \item Use backups to standup an independent reporting server
-                \item Recover important data that was removed on purpose
-            \end{itemize}
         \end{itemize}
-    \end{frame}
 
-    \section{Living Backups}
-
-    \begin{frame}
-        \frametitle{Schr\"{o}dinger’s Backup}
-
-        The state of any backup is unknown until a restore is attempted.
-    \end{frame}
-
-    \begin{frame}
-        \frametitle{Making Backups Useful}
+        \item Unused code paths will not work when you need them unless they are tested
 
         \begin{itemize}
-            \item Find a way to use your backups
-
-            \begin{itemize}
-                \item Syncing / New Replicas
-                \item Offline reporting
-                \item Offline data archiving
-                \item Development
-            \end{itemize}
-
-            \item Unused code paths will not work when you need them unless they are tested
-
-            \begin{itemize}
-                \item Regularly scheduled automated failover using backups to restore the old primary
-                \item Regularly scheduled disaster recovery (during a maintenance window if possible) to test restore techniques
-            \end{itemize}
+            \item Regularly scheduled automated failover using backups to restore the old primary
+            \item Regularly scheduled disaster recovery (during a maintenance window if possible) to test restore techniques
         \end{itemize}
-    \end{frame}
+    \end{itemize}
+\end{frame}
 
-    \section{How to Backup?}
+% \section{How to Backup?}
+%
+% \begin{frame}
+%     \frametitle{How to Backup?}
+%
+%     \begin{itemize}
+%         \item pg\_dump
+%
+%         \item pg\_basebackup
+%
+%         \item Manual
+%
+%         \item Third Party
+%
+%         \begin{itemize}
+%             \item OmniPITR
+%             \item Barman
+%             \item WAL-E
+%         \end{itemize}
+%
+%         \item pgBackRest!
+%     \end{itemize}
+% \end{frame}
 
-    \begin{frame}
-        \frametitle{How to Backup?}
+\section{Design}
+
+\begin{frame}
+    \frametitle{Design}
+
+    \begin{itemize}
+        \item Rsync powers many database backup solutions but it has some serious limitations:\pause
 
         \begin{itemize}
-            \item pg\_dump
-
-            \item pg\_basebackup
-
-            \item Manual
-
-            \item Third Party
-
-            \begin{itemize}
-                \item OmniPITR
-                \item Barman
-                \item WAL-E
-            \end{itemize}
-
-            \item pgBackRest!
+            \item Single-process.\pause
+            \item One second timestamp resolution.\pause
+            \item Incremental backups require previous backup to be uncompressed.\pause
         \end{itemize}
-    \end{frame}
 
-    \section{Design}
-
-    \begin{frame}
-        \frametitle{Design}
+        \item pgBackRest does not use rsync, tar or other typical backup tools:\pause
 
         \begin{itemize}
-            \item Rsync powers many database backup solutions but it has some serious limitations
-
-            \begin{itemize}
-                \item Single-threaded
-                \item One second timestamp resolution
-                \item Incremental backups require previous backup to be uncompressed
-            \end{itemize}
-
-            \item pgBackRest does not use rsync, tar or any other tools of that type
-
-            \begin{itemize}
-                \item Protocol supports local/remote operation
-                \item Solves timestamp resolution issue
-            \end{itemize}
+            \item Protocol supports local/remote operation.\pause
+            \item Solves timestamp resolution issue.
         \end{itemize}
-    \end{frame}
+    \end{itemize}
+\end{frame}
 
-    \section{Features}
+\section{Features}
 
-    \begin{frame}
-        \frametitle{Multithreaded Backup \& Restore}
+\begin{frame}
+    \frametitle{Multi-Process Backup \& Restore}
 
-        Compression is usually the bottleneck during backup operations but, even with now ubiquitous multi-core servers, most database backup solutions are still single-threaded. pgBackRest solves the compression bottleneck with multithreading.
-        \par
-        Utilizing multiple cores for compression makes it possible to achieve 1TB/hr raw throughput even on a 1Gb/s link. More cores and a larger pipe lead to even higher throughput.
-    \end{frame}
+    \begin{itemize}
+        \item Compression is usual bottleneck:\pause
 
-    \begin{frame}
-        \frametitle{Local or Remote Operation}
+        \begin{itemize}
+            \item But most PostgreSQL backup solutions are single-process.\pause
+            \item pgBackRest solves the problem with multi-processing.\pause
+            \item 1TB/hr raw throughput even on a 1Gb/s link using multiple cores.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
 
-        A custom protocol allows pgBackRest to backup, restore, and archive locally or remotely via SSH with minimal configuration. An interface to query PostgreSQL is also provided via the protocol layer so that remote access to PostgreSQL is never required, which enhances security.
-    \end{frame}
+\begin{frame}
+    \frametitle{Local or Remote Operation}
 
-    \begin{frame}
-        \frametitle{Full, Incremental, \& Differential Backups}
+    \begin{itemize}
+        \item Custom protocol allows backup, restore, and archive locally or remotely via SSH with minimal configuration.\pause
+        \item No direct access to PostgreSQL is required from the remote server which enhances security.
+    \end{itemize}
+\end{frame}
 
-        Full, differential, and incremental backups are supported. pgBackRest is not susceptible to the time resolution issues of rsync, making differential and incremental backups completely safe.
-    \end{frame}
+\begin{frame}
+    \frametitle{Full, Incremental, \& Differential Backups}
 
-    \begin{frame}
-        \frametitle{Backup Rotation \& Archive Expiration}
+    \begin{itemize}
+        \item Multiple backup types:\pause
 
-        Retention polices can be set for full and differential backups to create coverage for any timeframe. WAL archive can be maintained for all backups or strictly for the most recent backups. In the latter case WAL required to make older backups consistent will be maintained in the archive.
-    \end{frame}
+            \begin{itemize}
+                \item Full\pause
+                \item Differential\pause
+                \item Incremental\pause
+            \end{itemize}
 
-    \begin{frame}
-        \frametitle{Backup Integrity}
+        \item pgBackRest is not susceptible to the time resolution issues of rsync, making differential and incremental backups safe.
+    \end{itemize}
+\end{frame}
 
-        Checksums are calculated for every file in the backup and rechecked during a restore. After a backup finishes copying files, it waits until every WAL segment required to make the backup consistent reaches the repository.
-        \par
-        Backups in the repository are stored in the same format as a standard PostgreSQL cluster (including tablespaces). If compression is disabled and hard links are enabled it is possible to snapshot a backup in the repository and bring up a PostgreSQL cluster directly on the snapshot. This is advantageous for terabyte-scale databases that are time consuming to restore in the traditional way.
-        \par
-        All operations utilize file and directory level fsync to ensure durability.
-    \end{frame}
+\begin{frame}
+    \frametitle{Backup Rotation \& Archive Expiration}
 
-    \begin{frame}
-        \frametitle{Backup Resume}
+    \begin{itemize}
+        \item Retention Based on full or differential backups.\pause
+        \item WAL retention for all backups or configure number of recent backups.\pause
+        \item WAL required for consistency of backups always preserved.
+    \end{itemize}
+\end{frame}
 
-        An aborted backup can be resumed from the point where it was stopped. Files that were already copied are compared with the checksums in the manifest to ensure integrity. Since this operation can take place entirely on the backup server, it reduces load on the database server and saves time since checksum calculation is faster than compressing and retransmitting data.
-    \end{frame}
+\begin{frame}
+    \frametitle{Backup Integrity}
 
-    \begin{frame}
-        \frametitle{Streaming Compression \& Checksums}
+    \begin{itemize}
+        \item Checksums are calculated for every file in the backup and rechecked during a restore.\pause
+        \item After a backup required WAL segments are checked in the repository.\pause
+        \item Simple backup format:\pause
 
-        Compression and checksum calculations are performed in stream while files are being copied to the repository, whether the repository is located locally or remotely.
-        \par
-        If the repository is on a backup server, compression is performed on the database server and files are transmitted in a compressed format and simply stored on the backup server. When compression is disabled a lower level of compression is utilized to make efficient use of available bandwidth while keeping CPU cost to a minimum.
-    \end{frame}
+            \begin{itemize}
+                \item Backup directories have the same format as a PostgreSQL cluster.\pause
+                \item Clusters can be brought up in place with snapshots if compression is disabled.\pause
+                \item Advantageous for terabyte-scale databases.\pause
+            \end{itemize}
 
-    \begin{frame}
-        \frametitle{Delta Restore}
+        \item All operations utilize file and directory level fsync to ensure durability.
+    \end{itemize}
+\end{frame}
 
-        The manifest contains checksums for every file in the backup so that during a restore it is possible to use these checksums to speed processing enormously. On a delta restore any files not present in the backup are first removed and then checksums are taken for the remaining files. Files that match the backup are left in place and the rest of the files are restored as usual. Since this process is multithreaded, it can lead to a dramatic reduction in restore times.
-    \end{frame}
+\begin{frame}
+    \frametitle{Backup Resume}
 
-    \begin{frame}
-        \frametitle{Advanced Archiving}
+    \begin{itemize}
+        \item An aborted backup can be resumed from the point where it stopped.\pause
+        \item Checksumming files on resume takes place on the backup server.\pause
+        \item Saves load on the master by not compressing and transmitting resumed files.
+    \end{itemize}
+\end{frame}
 
-        Dedicated commands are included for both pushing WAL to the archive and retrieving WAL from the archive.
-        \par
-        The push command automatically detects WAL segments that are pushed multiple times and de-duplicates when the segment is identical, otherwise an error is raised. The push and get commands both ensure that the database and repository match by comparing PostgreSQL versions and system identifiers. This precludes the possibility of misconfiguring the WAL archive location.
-        \par
-        Asynchronous archiving allows compression and transfer to be offloaded to another process which maintains a continuous connection to the remote server, improving throughput significantly. This can be a critical feature for databases with extremely high write volume.
-    \end{frame}
+\begin{frame}
+    \frametitle{Streaming Compression \& Checksums}
 
-    \begin{frame}
-        \frametitle{Tablespace \& Link Support}
+    \begin{itemize}
+        \item Compression and checksum calculations are performed in stream.\pause
+        \item Compression is not done more than once.\pause
+        \item Lower compression is used when the destination is uncompressed to efficiently utilize CPU and network bandwidth.
+    \end{itemize}
+\end{frame}
 
-        Tablespaces are fully supported and on restore tablespaces can be remapped to any location. It is also possible to remap all tablespaces to one location with a single command which is useful for development restores.
-        \par
-        File and directory links are supported for any file or directory in the PostgreSQL cluster. When restoring it is possible to restore all links to their original locations, remap some or all links, or restore some or all links as normal files or directories within the cluster directory.
-    \end{frame}
+\begin{frame}
+    \frametitle{Delta Restore}
 
-    \begin{frame}
-        \frametitle{Compatibility with PostgreSQL $\geqslant$ 8.3}
+    \begin{itemize}
+        \item Backup manifest contains checksum and size for every file.\pause
+        \item On delta restore all files not present in the backup or with a different size are removed from PGDATA.\pause
+        \item The remaining files are checksummed and only files with a checksum mismatch are restored.\pause
+        \item Multi-processing can lead to dramatic reductions in restore time and network utilization.
+    \end{itemize}
+\end{frame}
 
-        pgBackRest includes support for versions down to 8.3, since older versions of PostgreSQL are still regularly utilized.
-    \end{frame}
+\begin{frame}
+    \frametitle{Advanced Archiving}
 
-    \section{Performance}
+    \begin{itemize}
+        \item Dedicated commands are included for both pushing WAL to the archive and retrieving WAL from the archive.\pause
+        \item Push command automatically detects WAL segments that are pushed multiple times and de-duplicates when the segment is identical, otherwise an error is raised.\pause
+        \item Push and get commands both ensure that the database and repository match by comparing PostgreSQL versions and system identifiers to prevent misconfiguration.\pause
 
-    \begin{frame}
-        \frametitle{Performance}
+        \item Asynchronous archiving allows compression and transfer to be offloaded to another process which maintains a continuous connection to the remote server, improving throughput significantly.\pause
 
-        \begin{table}
-            \begin{tabular}{l || c | c}
-                Parameters & pgBackRest & rsync \\
-                \hline \hline
-                \pbox{14em}{threads: 1 \\ network compression: l3 \\ destination compression: none} &
-                    141 Seconds &
-                    \pbox{14em}{124 Seconds \\ (.13X Faster)} \\ \hline
-                \pbox{14em}{threads: 2 \\ network compression: l3 \\ destination compression: none} &
-                    \pbox{14em}{84 Seconds \\ (1.48X Faster)} &
-                    N/A \\ \hline
-                \pbox{14em}{threads: 1 \\ network compression: l6 \\ destination compression: l6} &
-                    \pbox{14em}{334 Seconds \\ (1.52X Faster)} &
-                    510 Seconds \\ \hline
-                \pbox{14em}{threads: 2 \\ network compression: l6 \\ destination compression: l6} &
-                    \pbox{14em}{174 Seconds \\ (2.93X Faster)} &
-                    N/A
-            \end{tabular}
-        \end{table}
+            \begin{itemize}
+                \item Critical feature for databases with extremely high write volume.
+            \end{itemize}
+    \end{itemize}
+\end{frame}
 
-    \end{frame}
+\begin{frame}
+    \frametitle{Tablespace \& Link Support}
 
-    \section{Demonstration}
+    \begin{itemize}
+        \item Tablespaces are fully supported and on restore tablespaces can be remapped to any location.\pause
+        \item Remap all tablespaces to one location with a single command which is useful for development restores.\pause
+    \end{itemize}
 
-    \begin{frame}
-        \frametitle{Demonstration}
+    \begin{itemize}
+        \item File and directory links are supported for any file or directory in the PostgreSQL cluster.\pause
+        \item Restore all links to their original locations, remap some or all links, or restore some or all links as normal files or directories within the cluster directory
+    \end{itemize}
+\end{frame}
 
-        Live Demo --- this should be fun!
-    \end{frame}
+\begin{frame}
+    \frametitle{Selective Restore}
 
-    \section{Questions?}
+    \begin{itemize}
+        \item Restore only specified databases out of a cluster backup.\pause
+        \item Other files are restored as sparse, zeroed files the save space.\pause
+        \item All WAL must be replayed.\pause
+        \item Cannot connect to non-restored databases, can only drop them.\pause
+    \end{itemize}
+\end{frame}
 
-    \begin{frame}
-        \frametitle{Questions?}
+\begin{frame}
+    \frametitle{Backup from Standby}
 
-        website: \url{http://www.pgbackrest.org}
-        \par
-        email: \href{mailto:david@pgbackrest.org}{david@pgbackrest.org} \\
-        email: \href{mailto:david@crunchydata.com}{david@crunchydata.com}
-        \par
-        releases: \url{https://github.com/pgbackrest/pgbackrest/releases}
-        \par
-        slides \& demo: \url{https://github.com/dwsteele/conference/releases}
+    \begin{itemize}
+        \item Backup is started on master.\pause
+        \item Backup starts when replay location on standby reaches start backup location.\pause
+        \item Reduces load on master because replicated files are copied from the standby.
+    \end{itemize}
+\end{frame}
 
-    \end{frame}
+\begin{frame}
+    \frametitle{Compatibility with PostgreSQL $\geqslant$ 8.3}
 
+    \begin{itemize}
+        \item Support for versions down to 8.3, since older versions of PostgreSQL are still regularly utilized.
+    \end{itemize}
+\end{frame}
+
+\section{Performance}
+
+\begin{frame}
+    \frametitle{Performance}
+
+    \begin{table}
+        \begin{tabular}{l || c | c}
+            \bf{Parameters} & \bf{pgBackRest} & \bf{rsync} \\
+            \hline \hline
+            \pbox{14em}{processes: 1 \\ network compression: l3 \\ destination compression: none} &
+                141 Seconds &
+                \pbox{14em}{124 Seconds \\ (.13X Faster)} \\ \hline
+            \pbox{14em}{processes: 2 \\ network compression: l3 \\ destination compression: none} &
+                \pbox{14em}{84 Seconds \\ (1.48X Faster)} &
+                N/A \\ \hline
+            \pbox{14em}{processes: 1 \\ network compression: l6 \\ destination compression: l6} &
+                \pbox{14em}{334 Seconds \\ (1.52X Faster)} &
+                510 Seconds \\ \hline
+            \pbox{14em}{processes: 2 \\ network compression: l6 \\ destination compression: l6} &
+                \pbox{14em}{174 Seconds \\ (2.93X Faster)} &
+                N/A
+        \end{tabular}
+    \end{table}
+
+\end{frame}
+
+\section{Demonstration}
+
+\begin{frame}
+    \frametitle{Demonstration}
+
+    Live Demo --- this should be fun!
+\end{frame}
+
+\section{Questions?}
+
+\begin{frame}
+    \frametitle{Questions?}
+
+    website: \url{http://www.pgbackrest.org}\\
+    \vspace{1em}
+    email: \href{mailto:david@pgbackrest.org}{david@pgbackrest.org} \\
+    email: \href{mailto:david@crunchydata.com}{david@crunchydata.com}\\
+    \vspace{1em}
+    releases: \url{https://github.com/pgbackrest/pgbackrest/releases}\\
+    \vspace{1em}
+    slides \& demo: \url{https://github.com/dwsteele/conference/releases}\\
+\end{frame}
+
+% End document
 \end{document}

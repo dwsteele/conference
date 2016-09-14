@@ -253,6 +253,7 @@ sub write_conf
         or confess "unable to open ${strConfFileName}";
 
     syswrite($hFile, "[global]\nrepo-path=" . cwd() . "/repo");
+    syswrite($hFile, "\nretention-full=4");
     syswrite($hFile, "\n\n[${strStanza}]\ndb-path=" . cwd() . "/db");
     syswrite($hFile, "\n");
 

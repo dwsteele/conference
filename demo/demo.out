@@ -5,8 +5,6 @@ pgBackRest Demo
 Setup the cluster and repo:
 ---------------------------
 
-STOP CLUSTER: /usr/lib/postgresql/9.5/bin/pg_ctl stop -D db -w -s -m fast > /dev/null
-
 CREATE DB DIR: mkdir db
 
 CREATE CLUSTER: /usr/lib/postgresql/9.5/bin/initdb -D db -A trust > /dev/null
@@ -19,6 +17,7 @@ CREATE TABLE
 SHOW CONF: cat /etc/pgbackrest.conf
 [global]
 repo-path=/home/vagrant/repo
+retention-full=4
 
 [main]
 db-path=/home/vagrant/db
@@ -36,12 +35,12 @@ DB SIZE: du -sh db
 
 SHOW BACKUP: ls -lah repo/backup/main
 total 20K
-drwxr-x--- 4 vagrant vagrant 4.0K Apr 18 15:43 .
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 ..
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 20160418-154352F
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 backup.history
--rw-r----- 1 vagrant vagrant  898 Apr 18 15:43 backup.info
-lrwxrwxrwx 1 vagrant vagrant   16 Apr 18 15:43 latest -> 20160418-154352F
+drwxr-x--- 4 vagrant vagrant 4.0K Sep 13 22:24 .
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 20160913-222441F
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 backup.history
+-rw-r----- 1 vagrant vagrant  928 Sep 13 22:24 backup.info
+lrwxrwxrwx 1 vagrant vagrant   16 Sep 13 22:24 latest -> 20160913-222441F
 
 BACKUP SIZE: du -sh repo/backup/main
 5.7M	repo/backup/main
@@ -51,15 +50,14 @@ Show archive after the full backup:
 -----------------------------------
 
 SHOW ARCHIVE: ls -lah repo/archive/main/9.5-1/0000000100000000
-total 1.9M
-drwxr-x--- 2 vagrant vagrant 4.0K Apr 18 15:43 .
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 ..
--rw-r----- 1 vagrant vagrant 1.9M Apr 18 15:43 000000010000000000000001-39ef3d84db8183e0bff654ac70f8454e0dddb509.gz
--rw-r----- 1 vagrant vagrant  332 Apr 18 15:43 000000010000000000000002.00000028.backup
--rw-r----- 1 vagrant vagrant  27K Apr 18 15:43 000000010000000000000002-3c02390d364306f28cd7374e9fcf03fca0f45638.gz
+total 40K
+drwxr-x--- 2 vagrant vagrant 4.0K Sep 13 22:24 .
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 ..
+-rw-r----- 1 vagrant vagrant  332 Sep 13 22:24 000000010000000000000002.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Sep 13 22:24 000000010000000000000002-5597785ad9efe21ec50d13822b91758ad8343774.gz
 
 ARCHIVE SIZE: du -sh repo/archive/main/9.5-1
-1.9M	repo/archive/main/9.5-1
+40K	repo/archive/main/9.5-1
 
 ------------------------------
 Perform a differential backup:
@@ -72,13 +70,13 @@ DB SIZE: du -sh db
 
 SHOW BACKUP: ls -lah repo/backup/main
 total 24K
-drwxr-x--- 5 vagrant vagrant 4.0K Apr 18 15:43 .
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 ..
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 20160418-154352F
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 20160418-154352F_20160418-154355D
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 backup.history
--rw-r----- 1 vagrant vagrant 1.5K Apr 18 15:43 backup.info
-lrwxrwxrwx 1 vagrant vagrant   33 Apr 18 15:43 latest -> 20160418-154352F_20160418-154355D
+drwxr-x--- 5 vagrant vagrant 4.0K Sep 13 22:24 .
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 20160913-222441F
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 20160913-222441F_20160913-222444D
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 backup.history
+-rw-r----- 1 vagrant vagrant 1.6K Sep 13 22:24 backup.info
+lrwxrwxrwx 1 vagrant vagrant   33 Sep 13 22:24 latest -> 20160913-222441F_20160913-222444D
 
 BACKUP SIZE: du -sh repo/backup/main
 5.9M	repo/backup/main
@@ -88,17 +86,16 @@ Show archive after the differential backup:
 -------------------------------------------
 
 SHOW ARCHIVE: ls -lah repo/archive/main/9.5-1/0000000100000000
-total 1.9M
-drwxr-x--- 2 vagrant vagrant 4.0K Apr 18 15:43 .
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 ..
--rw-r----- 1 vagrant vagrant 1.9M Apr 18 15:43 000000010000000000000001-39ef3d84db8183e0bff654ac70f8454e0dddb509.gz
--rw-r----- 1 vagrant vagrant  332 Apr 18 15:43 000000010000000000000002.00000028.backup
--rw-r----- 1 vagrant vagrant  27K Apr 18 15:43 000000010000000000000002-3c02390d364306f28cd7374e9fcf03fca0f45638.gz
--rw-r----- 1 vagrant vagrant  332 Apr 18 15:43 000000010000000000000003.00000028.backup
--rw-r----- 1 vagrant vagrant  27K Apr 18 15:43 000000010000000000000003-313f6aff7e8e506c767b6092461cb3a854a4c508.gz
+total 72K
+drwxr-x--- 2 vagrant vagrant 4.0K Sep 13 22:24 .
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 ..
+-rw-r----- 1 vagrant vagrant  332 Sep 13 22:24 000000010000000000000002.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Sep 13 22:24 000000010000000000000002-5597785ad9efe21ec50d13822b91758ad8343774.gz
+-rw-r----- 1 vagrant vagrant  332 Sep 13 22:24 000000010000000000000003.00000028.backup
+-rw-r----- 1 vagrant vagrant  27K Sep 13 22:24 000000010000000000000003-cfd6a39d71991963f92eadd7c043740da8e41f13.gz
 
 ARCHIVE SIZE: du -sh repo/archive/main/9.5-1
-1.9M	repo/archive/main/9.5-1
+72K	repo/archive/main/9.5-1
 
 -----------------------------
 Release time - take a backup:
@@ -108,14 +105,14 @@ BACKUP TYPE=INCR: pgbackrest --stanza=main --type=incr backup
 
 SHOW BACKUP: ls -lah repo/backup/main
 total 28K
-drwxr-x--- 6 vagrant vagrant 4.0K Apr 18 15:43 .
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 ..
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 20160418-154352F
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 20160418-154352F_20160418-154355D
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 20160418-154352F_20160418-154358I
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 backup.history
--rw-r----- 1 vagrant vagrant 2.1K Apr 18 15:43 backup.info
-lrwxrwxrwx 1 vagrant vagrant   33 Apr 18 15:43 latest -> 20160418-154352F_20160418-154358I
+drwxr-x--- 6 vagrant vagrant 4.0K Sep 13 22:24 .
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 ..
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 20160913-222441F
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 20160913-222441F_20160913-222444D
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 20160913-222441F_20160913-222447I
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 backup.history
+-rw-r----- 1 vagrant vagrant 2.2K Sep 13 22:24 backup.info
+lrwxrwxrwx 1 vagrant vagrant   33 Sep 13 22:24 latest -> 20160913-222441F_20160913-222447I
 
 -----------------------------------
 Release time - set a restore point:
@@ -143,7 +140,7 @@ QA says the release is no good - please rollback:
 -------------------------------------------------
 
 RESTORE TYPE=NAME TARGET=release: pgbackrest --stanza=main --type=name --target=release --delta restore
-2016-04-18 15:43:58.844 T00  ERROR: [113]: unable to restore while Postgres is running
+2016-09-13 22:24:48.232 P00  ERROR: [113]: unable to restore while Postgres is running
 
 ----------------------------------------
 Forgot to stop the database - try again:
@@ -172,10 +169,10 @@ GET MESSAGE: echo "select message from test" | psql postgres
 
 SHOW NEW TIMELINE: ls -lah repo/archive/main/9.5-1
 total 16K
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:44 .
-drwxr-x--- 3 vagrant vagrant 4.0K Apr 18 15:43 ..
-drwxr-x--- 2 vagrant vagrant 4.0K Apr 18 15:43 0000000100000000
--rw-r----- 1 vagrant vagrant   39 Apr 18 15:44 00000002.history
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 .
+drwxr-x--- 3 vagrant vagrant 4.0K Sep 13 22:24 ..
+drwxr-x--- 2 vagrant vagrant 4.0K Sep 13 22:24 0000000100000000
+-rw-r----- 1 vagrant vagrant   39 Sep 13 22:24 00000002.history
 
 -------------------------------------------------------------
 App is started and important data is written to the database:
@@ -230,12 +227,25 @@ Show basic info:
 ----------------
 
 INFO OUTPUT=TEXT: pgbackrest --stanza=main info
-stanza main
+stanza: main
     status: ok
-    oldest backup label: 20160418-154352F
-    oldest backup timestamp: 2016-04-18 15:43:42
-    latest backup label: 20160418-154352F_20160418-154358I
-    latest backup timestamp: 2016-04-18 15:43:55
+
+    full backup: 20160913-222441F
+        start / stop timestamp: 2016-09-13 22:24:30 / 2016-09-13 22:24:41
+        database size: 20.7MB, backup size: 20.7MB
+        repository size: 2.4MB, repository backup size: 2.4MB
+
+    diff backup: 20160913-222441F_20160913-222444D
+        start / stop timestamp: 2016-09-13 22:24:41 / 2016-09-13 22:24:44
+        database size: 20.7MB, backup size: 8.2KB
+        repository size: 2.4MB, repository backup size: 343B
+        backup reference list: 20160913-222441F
+
+    incr backup: 20160913-222441F_20160913-222447I
+        start / stop timestamp: 2016-09-13 22:24:45 / 2016-09-13 22:24:47
+        database size: 20.7MB, backup size: 8.2KB
+        repository size: 2.4MB, repository backup size: 342B
+        backup reference list: 20160913-222441F
 
 --------------------------
 Show exhaustive JSON info:
@@ -252,25 +262,25 @@ INFO OUTPUT=JSON: pgbackrest --stanza=main --output=json info
                 },
                 "backrest" : {
                     "format" : 5,
-                    "version" : "1.00"
+                    "version" : "1.07"
                 },
                 "database" : {
                     "id" : 1
                 },
                 "info" : {
-                    "delta" : 21771345,
+                    "delta" : 21762273,
                     "repository" : {
-                        "delta" : 2519436,
-                        "size" : 2519436
+                        "delta" : 2517804,
+                        "size" : 2517804
                     },
-                    "size" : 21771345
+                    "size" : 21762273
                 },
-                "label" : "20160418-154352F",
+                "label" : "20160913-222441F",
                 "prior" : null,
                 "reference" : null,
                 "timestamp" : {
-                    "start" : 1460994222,
-                    "stop" : 1460994232
+                    "start" : 1473805470,
+                    "stop" : 1473805481
                 },
                 "type" : "full"
             },
@@ -281,7 +291,7 @@ INFO OUTPUT=JSON: pgbackrest --stanza=main --output=json info
                 },
                 "backrest" : {
                     "format" : 5,
-                    "version" : "1.00"
+                    "version" : "1.07"
                 },
                 "database" : {
                     "id" : 1
@@ -290,18 +300,18 @@ INFO OUTPUT=JSON: pgbackrest --stanza=main --output=json info
                     "delta" : 8428,
                     "repository" : {
                         "delta" : 343,
-                        "size" : 2519433
+                        "size" : 2517801
                     },
-                    "size" : 21771345
+                    "size" : 21762273
                 },
-                "label" : "20160418-154352F_20160418-154355D",
-                "prior" : "20160418-154352F",
+                "label" : "20160913-222441F_20160913-222444D",
+                "prior" : "20160913-222441F",
                 "reference" : [
-                    "20160418-154352F"
+                    "20160913-222441F"
                 ],
                 "timestamp" : {
-                    "start" : 1460994232,
-                    "stop" : 1460994235
+                    "start" : 1473805481,
+                    "stop" : 1473805484
                 },
                 "type" : "diff"
             },
@@ -312,7 +322,7 @@ INFO OUTPUT=JSON: pgbackrest --stanza=main --output=json info
                 },
                 "backrest" : {
                     "format" : 5,
-                    "version" : "1.00"
+                    "version" : "1.07"
                 },
                 "database" : {
                     "id" : 1
@@ -321,18 +331,18 @@ INFO OUTPUT=JSON: pgbackrest --stanza=main --output=json info
                     "delta" : 8428,
                     "repository" : {
                         "delta" : 342,
-                        "size" : 2519432
+                        "size" : 2517800
                     },
-                    "size" : 21771345
+                    "size" : 21762273
                 },
-                "label" : "20160418-154352F_20160418-154358I",
-                "prior" : "20160418-154352F_20160418-154355D",
+                "label" : "20160913-222441F_20160913-222447I",
+                "prior" : "20160913-222441F_20160913-222444D",
                 "reference" : [
-                    "20160418-154352F"
+                    "20160913-222441F"
                 ],
                 "timestamp" : {
-                    "start" : 1460994235,
-                    "stop" : 1460994238
+                    "start" : 1473805485,
+                    "stop" : 1473805487
                 },
                 "type" : "incr"
             }
@@ -340,7 +350,7 @@ INFO OUTPUT=JSON: pgbackrest --stanza=main --output=json info
         "db" : [
             {
                 "id" : "1",
-                "system-id" : 6274922395497114013,
+                "system-id" : 6329946283862958520,
                 "version" : "9.5"
             }
         ],
