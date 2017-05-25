@@ -6,10 +6,10 @@
 % ----------------------------------------------------------------------------------------------------------------------------------
 \def\mytitle{Efficiently Backing up Terabytes of Data with pgBackRest}
 \def\mysubject{}
-\def\myevent{PostgresOpen 2016}
+\def\myevent{PGCon 2017}
 \def\myauthor{David Steele}
 \def\myemail{}
-\def\mydate{September 14, 2016}
+\def\mydate{May 25, 2017}
 
 % Suppres navigation bars
 \def\mysuppressnav{}
@@ -47,7 +47,7 @@
 
         \begin{itemize}
             \item Can be caused by hardware or software.\pause
-            \item Detection is of course a challenge.
+            \item Detection is, of course, a challenge.
         \end{itemize}
     \end{itemize}
 \end{frame}
@@ -136,7 +136,7 @@
 \section{Design}
 
 \begin{frame}
-    \frametitle{Design}
+    \frametitle{pgBackRest Design}
 
     \begin{itemize}
         \item Rsync powers many database backup solutions but it has some serious limitations:\pause
@@ -162,7 +162,7 @@
     \frametitle{Multi-Process Backup \& Restore}
 
     \begin{itemize}
-        \item Compression is usual bottleneck:\pause
+        \item Compression is the usual bottleneck:\pause
 
         \begin{itemize}
             \item But most PostgreSQL backup solutions are single-process.\pause
@@ -201,7 +201,7 @@
     \frametitle{Backup Rotation \& Archive Expiration}
 
     \begin{itemize}
-        \item Retention Based on full or differential backups.\pause
+        \item Retention based on full or differential backups.\pause
         \item WAL retention for all backups or configure number of recent backups.\pause
         \item WAL required for consistency of backups always preserved.
     \end{itemize}
@@ -211,6 +211,7 @@
     \frametitle{Backup Integrity}
 
     \begin{itemize}
+        \item PostgreSQL page checksums are validated if present ($\geqslant$ 9.3).\pause
         \item Checksums are calculated for every file in the backup and rechecked during a restore.\pause
         \item After a backup required WAL segments are checked in the repository.\pause
         \item Simple backup format:\pause
@@ -257,14 +258,14 @@
 \end{frame}
 
 \begin{frame}
-    \frametitle{Advanced Archiving}
+    \frametitle{Advanced Parallel Archiving}
 
     \begin{itemize}
         \item Dedicated commands are included for both pushing WAL to the archive and retrieving WAL from the archive.\pause
         \item Push command automatically detects WAL segments that are pushed multiple times and de-duplicates when the segment is identical, otherwise an error is raised.\pause
         \item Push and get commands both ensure that the database and repository match by comparing PostgreSQL versions and system identifiers to prevent misconfiguration.\pause
 
-        \item Asynchronous archiving allows compression and transfer to be offloaded to another process which maintains a continuous connection to the remote server, improving throughput significantly.\pause
+        \item Asynchronous parallel archiving allows compression and transfer to be offloaded to another process which maintains continuous connections to the remote server, improving throughput significantly.\pause
 
             \begin{itemize}
                 \item Critical feature for databases with extremely high write volume.
@@ -293,7 +294,7 @@
         \item Restore only specified databases out of a cluster backup.\pause
         \item Other files are restored as sparse, zeroed files the save space.\pause
         \item All WAL must be replayed.\pause
-        \item Cannot connect to non-restored databases, can only drop them.\pause
+        \item Cannot connect to non-restored databases, can only drop them.
     \end{itemize}
 \end{frame}
 
@@ -341,13 +342,53 @@
 
 \end{frame}
 
-\section{Demonstration}
+\section{Changes to Core}
 
 \begin{frame}
-    \frametitle{Demonstration}
+    \frametitle{Changes to Core}
 
-    Live Demo --- this should be fun!
+    \begin{itemize}
+        \item Completed
+
+            \begin{itemize}
+                \item Exclude files/directories reset or rebuilt on recovery.\pause
+                \item Make pg\_stop\_backup() wait optional.\pause
+                \item Non-exclusive backups (Magnus Hagander).\pause
+                \item Archive timeout fix (Michael Paquier).\pause
+            \end{itemize}
+
+        \item Planned
+
+            \begin{itemize}
+                \item More exclusions.\pause
+                \item Allow group read on \$PGDATA.\pause
+                \item Pass multiple WAL segments to archive\_command.\pause
+                \item Configurable WAL segment size (Beena Emerson).
+            \end{itemize}
+    \end{itemize}
 \end{frame}
+
+\section{In The Pipeline}
+
+\begin{frame}
+    \frametitle{In The Pipeline}
+
+    \begin{itemize}
+        \item S3 repository support (June).\pause
+        \item PostgreSQL 10 support.\pause
+        \item Encryption.\pause
+        \item Zstandard compression.\pause
+        \item Parallel archive-get.
+    \end{itemize}
+\end{frame}
+
+% \section{Demonstration}
+%
+% \begin{frame}
+%     \frametitle{Demonstration}
+%
+%     Live Demo --- this should be fun!
+% \end{frame}
 
 \section{Questions?}
 
