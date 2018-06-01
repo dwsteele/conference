@@ -6,10 +6,10 @@
 % ----------------------------------------------------------------------------------------------------------------------------------
 \def\mytitle{Reviewing PostgreSQL Patches for Fun and Profit}
 \def\mysubject{}
-\def\myevent{PGConf.EU 2016}
+\def\myevent{PGCon 2018}
 \def\myauthor{David Steele}
 \def\myemail{}
-\def\mydate{November 2, 2016}
+\def\mydate{June 1, 2018}
 
 % Suppres navigation bars
 \def\mysuppressnav{}
@@ -148,7 +148,7 @@
 \begin{frame}[fragile]
     \frametitle{Documentation Review}
 
-    PostgreSQL documentation is written in SGML. For example:
+    PostgreSQL documentation is written in XML. For example:
     \vspace{1em}
 
     \begin{lstlisting}
@@ -159,15 +159,15 @@ index 7413666..9092cf8 100644
 @@ -592,7 +592,7 @@ <title>Setting Up WAL Archiving</title>
 
     <para>
-     To enable WAL archiving, set the <xref linkend="guc-wal-level">
--    configuration parameter to <literal>archive</> or higher,
-+    configuration parameter to <literal>replica</> or higher,
-     <xref linkend="guc-archive-mode"> to <literal>on</>,
+     To enable WAL archiving, set the <xref linkend="guc-wal-level"/>
+-    configuration parameter to <literal>archive</literal> or higher,
++    configuration parameter to <literal>replica</literal> or higher,
+     <xref linkend="guc-archive-mode"/> to <literal>on</literal>,
      and specify the shell command to use in the <xref
-     linkend="guc-archive-command"> configuration parameter.  In practice
+     linkend="guc-archive-command"/> configuration parameter.  In practice
     \end{lstlisting}
     \vspace{1em}
-    If the feature is user-facing then the SGML documentation should explain how it works.  If the feature is only exposed internally then there may not be any SGML documentation but there should still be code comments and an explanation in the email thread.
+    If the feature is user-facing then the XML documentation should explain how it works.  If the feature is only exposed internally then there may not be any XML documentation but there should still be code comments and an explanation in the email thread.
 \end{frame}
 
 \begin{frame}[fragile]
@@ -196,6 +196,9 @@ cd postgresql
 git apply ../basebackup-exclusions-v3.patch
 make install
     \end{lstlisting}
+
+    \vspace{1em}
+    This is now done automatically by \url{http://commitfest.cputube.org}.
 \end{frame}
 
 \begin{frame}
@@ -256,7 +259,7 @@ make install
     \vspace{1em}
     email: \href{mailto:david@crunchydata.com}{david@crunchydata.com}\\
     \vspace{1em}
-    slides \& demo: \url{https://github.com/dwsteele/conference/releases}\\
+    slides: \url{https://github.com/dwsteele/conference/releases}\\
 \end{frame}
 
 \end{document}
