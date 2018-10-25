@@ -1,0 +1,266 @@
+% ----------------------------------------------------------------------------------------------------------------------------------
+% High Performance pgBackRest
+%
+% Build from the Vagrant VM:
+% cd /talk/slides && make -f /template/Makefile
+% ----------------------------------------------------------------------------------------------------------------------------------
+\def\mytitle{High Performance pgBackRest}
+\def\mysubject{}
+\def\myevent{PGConf.EU 2018}
+\def\myauthor{David Steele}
+\def\myemail{}
+\def\mydate{October 24, 2018}
+
+% Suppres navigation bars
+\def\mysuppressnav{}
+
+% Include Crunchy template
+\def\mytemplatepath{/template/}
+\input{\mytemplatepath crunchy-template.tex}
+
+% Agenda
+\begin{frame}
+    \frametitle{Agenda}
+    \tableofcontents
+\end{frame}
+
+\section{Introduction}
+
+\begin{frame}
+    \frametitle{About the Speaker}
+
+    \begin{itemize}
+        \item Principal Architect at Crunchy Data, the Trusted Open Source Enterprise PostgreSQL Leader.
+        \item Actively developing with PostgreSQL since 1999.
+        \item PostgreSQL Contributor.
+        \item Primary author of pgBackRest and co-author of pgAudit.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{What is pgBackRest?}
+
+    pgBackRest aims to be a simple, reliable backup and restore system that can seamlessly scale up to the largest databases and workloads.\pause\vspace{1em}
+
+    pgBackRest has a strong emphasis on performance, including:
+
+    \begin{itemize}
+        \item Parallel/asynchronous operation for all core commands\pause
+        \item Backup from Standby\pause
+        \item Advanced configuration for tuning specific commands
+    \end{itemize}
+\end{frame}
+
+\section{Core Commands}
+
+\begin{frame}
+    \frametitle{Core Commands}
+
+    \begin{itemize}
+        \item Archive Push \\\vspace{1em}
+
+        Allows PostgreSQL to push a completed WAL segment to the repository.\pause\vspace{1em}
+
+        \item Backup \\\vspace{1em}
+
+        Backup a PostgreSQL cluster.\pause\vspace{1em}
+
+        \item Archive Get \\\vspace{1em}
+
+        Allows PostgreSQL to get a completed WAL segment from the repository.\pause\vspace{1em}
+
+        \item Restore \\\vspace{1em}
+
+        Restore a PostgreSQL cluster.
+    \end{itemize}
+\end{frame}
+
+\section{Archive Push}
+
+\begin{frame}
+    \frametitle{Archive Push Features}
+
+    \begin{itemize}
+        \item Asynchronous operation
+
+        \begin{itemize}
+            \item Asynchronously scan the \texttt{archive\_status} directory for WAL segments that are ready to be archived.\pause
+            \item Store status of each WAL segment locally so PostgreSQL can be notified via the \texttt{archive\_command} of success or failure.\pause
+            \item Asynchronous notification is written in pure C for performance.
+        \end{itemize}
+
+        \item Parallelism
+
+        \begin{itemize}
+            \item Checksum, compress, encrypt, and transfer in parallel to improve throughput.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Archive Push Configuration}
+
+    \vspace{.75em}\begin{lstlisting}[title=pgbackrest.conf]
+[global:archive-push]
+archive-async=y
+process-max=4
+spool-path=/path/to/spool
+    \end{lstlisting}\pause\vspace{1em}
+
+    \begin{itemize}
+        \item The \texttt{spool-path} parameter is optional (defaults to \texttt{/var/spool/pgbackrest}).\pause
+        \item The spool directory must exist for asynchronous operation.
+    \end{itemize}
+\end{frame}
+
+\section{Backup}
+
+\begin{frame}
+    \frametitle{Backup Features}
+
+    \begin{itemize}
+        \item Backup from Standby
+
+        \begin{itemize}
+            \item Perform most of the backup from a standby to reduce load on the primary.\pause
+            \item Primary and standby are automatically selected from a list of clusters.\pause
+        \end{itemize}
+
+        \item Parallelism
+
+        \begin{itemize}
+            \item Checksum, compress, encrypt, and transfer in parallel to improve throughput.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Backup Configuration}
+
+    \vspace{.75em}\begin{lstlisting}[title=pgbackrest.conf]
+[global:backup]
+backup-standby=y
+process-max=8
+
+[demo]
+pg1-host=pg1
+pg1-path=/var/lib/postgresql/10
+pg2-host=pg2
+pg2-path=/var/lib/postgresql/10
+pg3-host=pg3
+pg3-path=/var/lib/postgresql/10
+    \end{lstlisting}\pause\vspace{1em}
+
+    \begin{itemize}
+        \item The current primary can be in any position in the list of PostgreSQL servers.\pause
+        \item The first live standby found will be used to perform the backup.
+    \end{itemize}
+\end{frame}
+
+\section{Archive Get}
+
+\begin{frame}
+    \frametitle{Archive Get Features}
+
+    \begin{itemize}
+        \item Asynchronous operation
+
+        \begin{itemize}
+            \item Asynchronously build a queue of WAL segments that PostgreSQL will need.\pause
+            \item Move or copy segments from the queue when requested by \texttt{restore\_command}.\pause
+            \item The spool directory should be located on the same device as \texttt{pg\_xlog}/\texttt{pg\_wal} for best performance.
+            \item Asynchronous notification is written in pure C for performance.
+        \end{itemize}
+
+        \item Parallelism
+
+        \begin{itemize}
+            \item Transfer, decrypt, decompress, and checksum in parallel to improve throughput.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Archive Get Configuration}
+
+    \vspace{.75em}\begin{lstlisting}[title=pgbackrest.conf]
+[global:archive-get]
+archive-async=y
+archive-get-queue-max=1GB
+process-max=2
+    \end{lstlisting}\pause\vspace{1em}
+
+    \begin{itemize}
+        \item Archive Get generally requires fewer processes than Archive Push because decompression is less CPU-intensive than compression.\pause
+        \item On the other hand, clusters in recovery generally have more CPU resources to spare.\pause
+        \item The idea is to keep PostgreSQL supplied with WAL so that it doesn't need to wait.
+    \end{itemize}
+\end{frame}
+
+\section{Restore}
+
+\begin{frame}
+    \frametitle{Restore Features}
+
+    \begin{itemize}
+        \item Delta operation
+
+        \begin{itemize}
+            \item Checksum local cluster files to determine what can be preserved.\pause
+            \item Transfer only files that have changed since the last backup from the repository.\pause
+        \end{itemize}
+
+        \item Parallelism
+
+        \begin{itemize}
+            \item Transfer, decrypt, decompress, and checksum in parallel to improve throughput.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Restore Configuration}
+
+    \vspace{.75em}\begin{lstlisting}[title=pgbackrest.conf]
+[global:restore]
+process-max=16
+    \end{lstlisting}\pause\vspace{1em}
+
+    \begin{itemize}
+        \item The \texttt{--delta} option can be specified on the command-line to enable delta restore.
+    \end{itemize}
+\end{frame}
+
+\section{Other Considerations}
+
+\begin{frame}
+    \frametitle{High Latency}
+
+    The \texttt{process-max} option can be used to speed transfers on high latency storage such as S3.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Compression}
+
+    The \texttt{compress-level} option can be lowered (e.g. \texttt{6} to \texttt{3}) to reduce the CPU cost of compression.
+
+    This also reduces the compression ratio, but the time savings are often worth it.
+\end{frame}
+
+\section{Questions?}
+
+\begin{frame}
+    \frametitle{Questions?}
+
+    website: \url{http://www.pgbackrest.org}\\
+    \vspace{1em}
+    email: \href{mailto:david@pgbackrest.org}{david@pgbackrest.org} \\
+    email: \href{mailto:david@crunchydata.com}{david@crunchydata.com}\\
+    \vspace{1em}
+    releases: \url{https://github.com/pgbackrest/pgbackrest/releases}\\
+    \vspace{1em}
+    slides \& demo: \url{https://github.com/dwsteele/conference/releases}\\
+\end{frame}
+
+% End document
+\end{document}
