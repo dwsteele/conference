@@ -6,10 +6,10 @@
 % ----------------------------------------------------------------------------------------------------------------------------------
 \def\mytitle{High Performance pgBackRest}
 \def\mysubject{}
-\def\myevent{PGConf.EU 2018}
+\def\myevent{PGCon 2019}
 \def\myauthor{David Steele}
 \def\myemail{}
-\def\mydate{October 24, 2018}
+\def\mydate{May 30, 2019}
 
 % Suppres navigation bars
 \def\mysuppressnav{}
@@ -32,8 +32,8 @@
     \begin{itemize}
         \item Principal Architect at Crunchy Data, the Trusted Open Source Enterprise PostgreSQL Leader.
         \item Actively developing with PostgreSQL since 1999.
-        \item PostgreSQL Contributor.
         \item Primary author of pgBackRest and co-author of pgAudit.
+        \item PostgreSQL Contributor.
     \end{itemize}
 \end{frame}
 
@@ -86,7 +86,7 @@
         \begin{itemize}
             \item Asynchronously scan the \texttt{archive\_status} directory for WAL segments that are ready to be archived.\pause
             \item Store status of each WAL segment locally so PostgreSQL can be notified via the \texttt{archive\_command} of success or failure.\pause
-            \item Asynchronous notification is written in pure C for performance.
+            \item Written in pure C for performance.\pause
         \end{itemize}
 
         \item Parallelism
@@ -109,7 +109,8 @@ spool-path=/path/to/spool
 
     \begin{itemize}
         \item The \texttt{spool-path} parameter is optional (defaults to \texttt{/var/spool/pgbackrest}).\pause
-        \item The spool directory must exist for asynchronous operation.
+        \item The spool directory must exist for asynchronous operation.\pause
+        \item Note that configuration may be done with environment variables, e.g. \texttt{PGBACKREST\_ARCHIVE\_ASYNC}, or the command-line, e.g. \texttt{--archive-async}.
     \end{itemize}
 \end{frame}
 
@@ -168,8 +169,8 @@ pg3-path=/var/lib/postgresql/10
         \begin{itemize}
             \item Asynchronously build a queue of WAL segments that PostgreSQL will need.\pause
             \item Move or copy segments from the queue when requested by \texttt{restore\_command}.\pause
-            \item The spool directory should be located on the same device as \texttt{pg\_xlog}/\texttt{pg\_wal} for best performance.
-            \item Asynchronous notification is written in pure C for performance.
+            \item The spool directory should be located on the same device as \texttt{pg\_xlog}/\texttt{pg\_wal} for best performance.\pause
+            \item Written in pure C for performance.\pause
         \end{itemize}
 
         \item Parallelism
@@ -192,7 +193,7 @@ process-max=2
 
     \begin{itemize}
         \item Archive Get generally requires fewer processes than Archive Push because decompression is less CPU-intensive than compression.\pause
-        \item On the other hand, clusters in recovery generally have more CPU resources to spare.\pause
+        \item On the other hand, clusters in recovery have more CPU resources to spare.\pause
         \item The idea is to keep PostgreSQL supplied with WAL so that it doesn't need to wait.
     \end{itemize}
 \end{frame}
@@ -201,6 +202,8 @@ process-max=2
 
 \begin{frame}
     \frametitle{Restore Features}
+
+    Restore performance is far more important than backup performance!\pause
 
     \begin{itemize}
         \item Delta operation
@@ -224,11 +227,8 @@ process-max=2
     \vspace{.75em}\begin{lstlisting}[title=pgbackrest.conf]
 [global:restore]
 process-max=16
-    \end{lstlisting}\pause\vspace{1em}
-
-    \begin{itemize}
-        \item The \texttt{--delta} option can be specified on the command-line to enable delta restore.
-    \end{itemize}
+delta=y
+    \end{lstlisting}\vspace{1em}
 \end{frame}
 
 \section{Other Considerations}
@@ -242,9 +242,15 @@ process-max=16
 \begin{frame}
     \frametitle{Compression}
 
-    The \texttt{compress-level} option can be lowered (e.g. \texttt{6} to \texttt{3}) to reduce the CPU cost of compression.
+    The \texttt{compress-level} option can be lowered (e.g. \texttt{6} to \texttt{3}) to reduce the CPU cost of compression. This also reduces the compression ratio, but the time savings are often worth it.\pause
 
-    This also reduces the compression ratio, but the time savings are often worth it.
+    \vspace{1em}We are introducing \texttt{lz4} support soon for a faster alternative to \texttt{gzip}.
+\end{frame}
+
+\begin{frame}
+    \frametitle{The Future}
+
+    The entire project will be migrated to C by the end of 2019.  We are adding in many performance enhancements as we go.
 \end{frame}
 
 \section{Questions?}
@@ -259,7 +265,7 @@ process-max=16
     \vspace{1em}
     releases: \url{https://github.com/pgbackrest/pgbackrest/releases}\\
     \vspace{1em}
-    slides \& demo: \url{https://github.com/dwsteele/conference/releases}\\
+    slides: \url{https://github.com/dwsteele/conference/releases}\\
 \end{frame}
 
 % End document
