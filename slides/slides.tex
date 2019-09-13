@@ -1,0 +1,219 @@
+% ----------------------------------------------------------------------------------------------------------------------------------
+% Evolving towards Postgres
+%
+% Build from the Vagrant VM:
+% cd /talk/slides && make -f /template/Makefile
+% ----------------------------------------------------------------------------------------------------------------------------------
+\def\mytitle{Evolving towards Postgres}
+\def\mysubject{}
+\def\myevent{PostgresOpen}
+\def\myauthor{David Steele}
+\def\myemail{}
+\def\mydate{September 13, 2019}
+
+% Suppres navigation bars
+\def\mysuppressnav{}
+
+% Include Crunchy template
+\def\mytemplatepath{/template/}
+\input{\mytemplatepath crunchy-template.tex}
+
+% Agenda
+\begin{frame}
+    \frametitle{Agenda}
+    \tableofcontents
+\end{frame}
+
+\section{Introduction}
+
+\begin{frame}
+    \frametitle{About the Speaker}
+
+    \begin{itemize}
+        \item Principal Architect at Crunchy Data, the Trusted Open Source Enterprise PostgreSQL Leader.
+        \item Actively developing with PostgreSQL since 1999.
+        \item Primary author of pgBackRest and co-author of pgAudit.
+        \item PostgreSQL Contributor.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{What is pgBackRest?}
+
+    pgBackRest aims to be a simple, reliable backup and restore system that can seamlessly scale up to the largest databases and workloads.\vspace{1em}
+\end{frame}
+
+\section{What is the PostgreSQL Ecosystem?}
+
+\begin{frame}
+    \frametitle{What is the PostgreSQL Ecosystem?}
+
+    The PostgreSQL ecosystem describes the software products and services that use or work with PostgreSQL.\pause \\
+    \vspace{1em}
+    Some examples:
+    \vspace{1em}
+    \begin{itemize}
+        \item pgAdmin - Graphical administration\pause
+        \item PostGIS - GIS functions\pause
+        \item check\_postgres - Monitoring plugin for Nagios\pause
+        \item pg\_partman - Automated partitioning\pause
+        \item PgBouncer - Connection pooler\pause
+        \item pgBackRest - Backup \& restore\pause
+    \end{itemize}
+    \vspace{1em}
+    And many, many more.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Why aren't they built into PostgreSQL?}
+
+    There are many possible approaches to a single problem, so the general idea is to have multiple solutions, each tailored to a specific approach. \\
+    \vspace{1em}
+    This is predicted by Conway's Law, i.e. the community is free to pursue their own ideas, therefore there will be mutliple solutions. \\
+    \vspace{1em}
+    Over time the best ideas can be integrated into PostgreSQL core, though this process is slow and uncertain.
+
+    % The messaging could stand to be tweaked, but that’s what you get with this governance structure, which for the most part works very well.  - Peter G.
+    %
+    % Conway's Law -- i.e., the community is free to pursue their own idea, therefore the solution will be multi-part. (https://en.wikipedia.org/wiki/Conway%27s_law)
+    %
+    % Evidence in support of Conway's law has been published by a team of Massachusetts Institute of Technology (MIT) and Harvard Business School researchers who, using "the mirroring hypothesis" as an equivalent term for Conway's law, found "strong evidence to support [the] mirroring hypothesis", and that "significant differences in [product] modularity" were "consistent with a view that distributed teams tend to develop more modular products".
+\end{frame}
+
+\section{Ignoring PostgreSQL}
+
+\begin{frame}
+    \frametitle{Ignoring PostgreSQL}
+
+    It is possible to develop software in the PostgreSQL ecosystem without ever interacting with the PostgreSQL community. \\
+    \vspace{1em}
+    The pgBackRest project did this for several years. \\
+    \vspace{1em}
+    For many projects this model may work for a long time or indefinitely.
+\end{frame}
+
+\section{Contributing to PostgreSQL}
+
+\begin{frame}
+    \frametitle{Contributing to PostgreSQL}
+
+    So why did we start contributing to PostgreSQL?
+\end{frame}
+
+\begin{frame}
+    \frametitle{Reviewing Useful Features}
+
+    \texttt{- Implement backup API functions for non-exclusive backups} \\
+    \texttt{Magnus Hagander, PostgreSQL 9.6} \\
+    \vspace{1em}
+    This patch allowed any external tool to run a non-exclusive backup, which had previously only been possible for the internal \texttt{pg\_basebackup} tool. \\
+    \vspace{1em}
+    A non-exclusive backup does not write \texttt{backup\_label} into \texttt{\$PGDATA} and does not interfere with other backups in progress.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Getting Feedback on pgBackRest Features}
+
+    \texttt{- Exclude additional directories in pg\_basebackup} \\
+    \texttt{- Exclude pg\_internal.init from BASE\_BACKUP} \\
+    \texttt{- Exclude unlogged tables from base backups} \\
+    \texttt{- Exclude temp tables from base backups} \\
+    \texttt{David Steele, PostgreSQL 10-11} \\
+    \vspace{1em}
+    These exclusions were all researched and developed for pgBackRest originally.  By contributing them to \texttt{pg\_basebackup} we were able to get a lot of review of the changes.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Adding a New Feature}
+
+    \texttt{- Allow group access on PGDATA} \\
+    \texttt{David Steele, PostgreSQL 11} \\
+    \vspace{1em}
+    Allows \texttt{\$PGDATA} to have group read permissions so backup can be performed by an unprivileged user.  This was not workable without changes to core. \\
+    \vspace{1em}
+    This commit depended on: \\
+    \vspace{1em}
+    \texttt{- Refactor dir/file permissions} \\
+    \texttt{David Steele and Adam Brightwell, PostgreSQL 11} \\
+    \vspace{1em}
+    \texttt{- Refactor new file permission handling} \\
+    \texttt{David Steele, PostgreSQL 11} \\
+\end{frame}
+
+\section{Choosing a Language}
+
+\begin{frame}
+    \frametitle{Choosing a Language}
+
+    pgBackRest was originally written in Perl but we are migrating to C.  Why?\pause \\
+    \vspace{1em}
+    \begin{itemize}
+        \item Speed (mostly startup speed)\pause
+        \item Simplified deployment\pause
+        \item Ability to use code and data structures from PostgreSQL\pause
+
+        \begin{itemize}
+            \item Page Checkums\pause
+            \item pg\_control structures\pause
+            \item WAL structures\pause
+            \item Portability
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\section{Challenges}
+
+\begin{frame}
+    \frametitle{Challenge - Removing Exclusive Backup}
+
+    There are a number of reasons why using exclusive backup is not a good idea, but there is a lot of resistance to removing it.  A better alternative (non-exclusive mode) has been available since 9.6.\pause \\
+    \vspace{1em}
+    Opinions on the patch fell primarily into three (nearly equal) groups:\pause
+    \begin{itemize}
+        \item No -- it would break too many existing scripts.\pause
+        \item Yes -- but not now.\pause
+        \item Yes -- we should do this now because a better method has been available for some time.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Challenge - Improving Backup Documentation}
+
+    In many cases the PostgreSQL backup/archiving documentation is over-simplistic or simply gives bad advice, i.e. using \texttt{cp} for archiving or using exclusive mode backup. \\
+    \vspace{1em}
+    Updating this documentation with better instructions and discouraging users from using the deprecated exclusive mode backup has been a multi-year process. \\
+    \vspace{1em}
+    \texttt{- Improve low-level backup documentation.} \\
+    \texttt{David Steele, PostgreSQL 11} \\
+    \vspace{1em}
+    \texttt{- Warn more strongly about the dangers of exclusive backup mode.} \\
+    \texttt{David Steele and Robert Haas, PostgreSQL 12}
+\end{frame}
+
+\section{Conclusion}
+
+\begin{frame}
+    \frametitle{Conclusion}
+
+    Is it worth it? \pause \\
+    \vspace{1em}
+    Yes.  Working with the community can be challenging but there are many benefits to both projects.
+\end{frame}
+
+\section{Questions?}
+
+\begin{frame}
+    \frametitle{Questions?}
+
+    website: \url{http://www.pgbackrest.org}\\
+    \vspace{1em}
+    email: \href{mailto:david@pgbackrest.org}{david@pgbackrest.org} \\
+    email: \href{mailto:david@crunchydata.com}{david@crunchydata.com}\\
+    \vspace{1em}
+    releases: \url{https://github.com/pgbackrest/pgbackrest/releases}\\
+    \vspace{1em}
+    slides: \url{https://github.com/dwsteele/conference/releases}\\
+\end{frame}
+
+% End document
+\end{document}
