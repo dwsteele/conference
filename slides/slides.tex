@@ -6,10 +6,10 @@
 % ----------------------------------------------------------------------------------------------------------------------------------
 \def\mytitle{High Performance pgBackRest}
 \def\mysubject{}
-\def\myevent{Montr\'eal PostgreSQL Meetup}
+\def\myevent{Charm City PostgreSQL Meetup}
 \def\myauthor{David Steele}
 \def\myemail{}
-\def\mydate{July 16, 2019}
+\def\mydate{February 25, 2019}
 
 % Suppres navigation bars
 \def\mysuppressnav{}
@@ -86,7 +86,6 @@
         \begin{itemize}
             \item Asynchronously scan the \texttt{archive\_status} directory for WAL segments that are ready to be archived.\pause
             \item Store status of each WAL segment locally so PostgreSQL can be notified via the \texttt{archive\_command} of success or failure.\pause
-            \item Written in pure C for performance.\pause
         \end{itemize}
 
         \item Parallelism
@@ -170,7 +169,6 @@ pg3-path=/var/lib/postgresql/10
             \item Asynchronously build a queue of WAL segments that PostgreSQL will need.\pause
             \item Move or copy segments from the queue when requested by \texttt{restore\_command}.\pause
             \item The spool directory should be located on the same device as \texttt{pg\_xlog}/\texttt{pg\_wal} for best performance.\pause
-            \item Written in pure C for performance.\pause
         \end{itemize}
 
         \item Parallelism
@@ -248,9 +246,9 @@ delta=y
 \end{frame}
 
 \begin{frame}
-    \frametitle{The Future}
+    \frametitle{C Migration Complete}
 
-    The entire project will be migrated to C by the end of 2019.  We are adding in many performance enhancements as we go.
+    The migration of pgBackRest to C was completed in 2019.  We are now focussed on new features and performance improvments.
 \end{frame}
 
 \section{Questions?}
