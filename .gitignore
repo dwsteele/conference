@@ -1,0 +1,6 @@
+.DS_Store
+demo/db
+demo/repo
+demo/diff
+.vagrant
+/slides/tmp

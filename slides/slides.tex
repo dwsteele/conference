@@ -1,0 +1,412 @@
+% ----------------------------------------------------------------------------------------------------------------------------------
+% Backup Best Practices with pgBackRest
+%
+% Build from the Vagrant VM:
+% cd /talk/slides && make -f /template/Makefile
+% ----------------------------------------------------------------------------------------------------------------------------------
+\def\mytitle{Backup Best Practices\\with pgBackRest}
+\def\mysubject{}
+\def\myevent{PostgresConf.CN \& PGConf.Asia}
+\def\myauthor{David Steele}
+\def\myemail{}
+\def\mydate{November 20, 2020}
+
+% Suppres navigation bars
+\def\mysuppressnav{}
+
+% Include Crunchy template
+\def\mytemplatepath{/template/}
+\input{\mytemplatepath crunchy-template.tex}
+
+% Agenda
+\begin{frame}
+    \frametitle{Agenda}
+    \tableofcontents
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{Introduction}
+
+\begin{frame}
+    \frametitle{About the Speaker}
+
+    \begin{itemize}
+        \item Principal Architect at Crunchy Data, the Trusted Open Source Enterprise PostgreSQL Leader.
+        \item Actively developing with PostgreSQL since 1999.
+        \item Maintainer of pgBackRest and pgAudit.
+        \item PostgreSQL Contributor.
+    \end{itemize}
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{Why and How to Backup}
+
+\begin{frame}
+    \frametitle{Why Backup?}
+
+    \begin{itemize}
+        \item Hardware Failure:
+
+        \begin{itemize}
+            \item No amount of redundancy can prevent it.
+        \end{itemize}
+
+        \item Replication:
+
+        \begin{itemize}
+            \item WAL archive for when async streaming gets behind.
+            \item Sync replica from a backup instead of the primary.
+        \end{itemize}
+
+        \item Corruption:
+
+        \begin{itemize}
+            \item Can be caused by hardware or software.
+            \item Detection is, of course, a challenge.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Why Backup?}
+
+    \begin{itemize}
+        \item Accidents:
+
+        \begin{itemize}
+            \item So you dropped a table?
+            \item Deleted your most important account?
+        \end{itemize}
+
+        \item Development:
+
+        \begin{itemize}
+            \item No more realistic data than production!
+            \item May not be practical due to size / privacy issues.
+        \end{itemize}
+
+        \item Reporting:
+
+        \begin{itemize}
+            \item Use backups to standup an independent reporting server.
+            \item Recover important data that was removed on purpose.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Making Backups Useful}
+
+    \begin{itemize}
+        \item Find a way to use your backups
+
+        \begin{itemize}
+            \item Syncing / New Replicas
+            \item Offline reporting
+            \item Offline data archiving
+            \item Development
+        \end{itemize}
+
+        \item Unused code paths will not work when you need them unless they are tested
+
+        \begin{itemize}
+            \item Regularly scheduled automated failover using backups to restore the old primary
+            \item Regularly scheduled disaster recovery (during a maintenance window if possible) to test restore techniques
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{What is pgBackRest?}
+
+\begin{frame}
+    \frametitle{What is pgBackRest?}
+
+    pgBackRest aims to be a reliable, easy-to-use backup and restore solution that can seamlessly scale up to the largest databases and workloads by utilizing algorithms that are optimized for database-specific requirements.
+    \\\vspace{1em}
+    Major features:
+
+    \begin{itemize}
+        \item Parallelism and asynchronous operation
+        \item Full, incremental, and differential backups
+        \item Backup and archive expiration
+        \item Integrity checks / page checksum verification
+        \item Delta restore
+        \item S3/Azure compatible object store support
+        \item Encryption
+        \item Multiple compression types (gzip, bzip, lz4, zstd)
+    \end{itemize}
+
+    The pgBackRest project started in 2013 and was originally written in Perl. The migration to pure C was completed in 2019.
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{Backup Types and Retention}
+
+\begin{frame}
+    \frametitle{Backup Types}
+
+    \begin{itemize}
+        \item Full
+
+        A complete copy of the database, not dependent on any other backup.
+
+        \item Incremental
+
+        Copy only files that have changed since the last backup (full, diff, or incr).
+
+        \item Differential
+
+        Like an incremental, but only copy files that have changed since the last \textbf{full} backup.
+    \end{itemize}
+
+    Incremental is the default since it is generally the least expensive backup type in terms of time and space.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Backup Retention (Count-based)}
+
+    A good default retention is:
+
+    \begin{quote}\begin{verbatim}
+repo1-retention-full=5
+repo1-retention-diff=3
+    \end{verbatim}\end{quote}\vspace{-1em}
+
+    Run the full backup once a week and differential backups the other six days:
+
+    \begin{quote}\begin{verbatim}
+# m h  dom mon dow  command
+45 08  *   *   0    pgbackrest --type=full --stanza=demo backup
+45 08  *   *   1-6  pgbackrest --type=diff --stanza=demo backup
+    \end{verbatim}\end{quote}\vspace{-1em}
+
+    With this retention there will always be at least five full backups.
+    \\\vspace{1em}
+    If full backups are run weekly then there will be four weeks of retention but if they are run more frequently then retention will be reduced.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Backup Retention (Time-based)}
+
+    A safer option is to use time-based retention.
+    \\\vspace{1em}
+    Four weeks of full retention with three differentials:
+
+    \begin{quote}\begin{verbatim}
+repo1-retention-full-type=time
+repo1-retention-full=28
+repo1-retention-diff=3
+    \end{verbatim}\end{quote}\vspace{-1em}
+
+    Run the full backup once a week and differentials the other six days.
+    \\\vspace{1em}
+    With this schedule there will always be at least 4 weeks of backups and accidentally making an extra full backup will not reduce the retention period.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Backup Retention (Ad hoc)}
+
+    If there are extra, unneeded backups they can be pruned with ad hoc expiration:
+
+    \begin{quote}\begin{verbatim}
+pgbackrest --stanza=demo --set=20201103_190545F expire
+    \end{verbatim}\end{quote}\vspace{-1em}
+
+    Note that dependent backups will also be expired, i.e. differential and incremental backups that depend on the full backup.
+    \\\vspace{1em}
+    Use the \texttt{--dry-run} option to see which backups will be expired.
+    \\\vspace{1em}
+    Combining the \texttt{info} command and ad hoc expiration it is possible to create a custom retention schedule, though this would require some coding.
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{Archiving}
+
+\begin{frame}
+    \frametitle{Archiving}
+
+    Asynchronous parallel archiving allows compression and transfer to be offloaded to another process which maintains continuous connections to the remote server, improving throughput significantly.
+    \\\vspace{1em}
+    Make sure there is enough space to hold WAL for an extended period if archiving stops.
+    \\\vspace{1em}
+    It is very important to monitor archiving to ensure it continues working.
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{Recovery Point Objective}
+
+\begin{frame}[fragile]
+    \frametitle{Recovery Point Objective}
+
+    \Large A recovery point objective (RPO) is the maximum acceptable amount of data loss measured in time.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Meeting RPO}
+
+    First, define the RPO. If the RPO is zero then synchronous replication may be the only viable option. Note that synchronous replication can have major performance impacts, especially in high-latency environments, e.g. multiple data centers.
+    \\\vspace{1em}
+    In certain situations, a zero RPO may not be possible, e.g., a table is dropped from the primary.
+    \\\vspace{1em}
+    For a non-zero RPO there are a few good options:
+
+    \begin{itemize}
+        \item Asynchronous replication
+
+        Replication lag should be monitored to ensure it does not fall outside the RPO requirement.
+
+        \item Archive timeout
+
+        The \texttt{archive\_timeout} setting ensures that a WAL segment is archived at the interval specified which can be tuned to meet RPO.
+    \end{itemize}
+
+    These two methods can be combined to minimize RPO within the allowance of the RTO.
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{Backup}
+
+\begin{frame}
+    \frametitle{Backup from Standby}
+
+    Backup from standby greatly reduces load on the primary.
+    \\\vspace{1em}
+    pgBackRest uses a hybrid technique that uses both the primary and a standby to make a backup:
+
+    \begin{itemize}
+        \item Backup is started on primary.
+        \item Backup starts when replay location on standby reaches start backup location.
+        \item Reduces load on the primary because replicated files are copied from the standby.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Backup to a Safe Location}
+
+    Do not backup to storage on the PostgreSQL host!
+    \\\vspace{1em}
+    Instead, backup to:
+    \begin{itemize}
+        \item Storage on a repository host.
+        \item NFS (or other network storage) mounted to the PostgreSQL host.
+        \item An object store (S3, Azure).
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Page Checksums}
+
+    When initializing a new cluster always specify the \texttt{-k} option.
+    \\\vspace{1em}
+    This will enable page checksums which pgBackRest will verify on every backup. If corruption is detected early it can often be corrected.
+    \\\vspace{1em}
+    If corruption is detected, don't panic! As long as older non-corrupted backups exist there are options:
+
+    \begin{itemize}
+        \item Restore an older backup and perform recovery
+
+        There is a good chance that corruption in the database is not in the WAL.
+
+        \item Restore an older backup and retrieve corrupted data
+
+        If corruption exists in only one area then it may be possible to retrieve that data from a backup and then load it into the primary database.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Failed Backups}
+
+    A failed backup should not be cause for panic. Ideally, there are a number of backups that can be used for a restore.
+    \\\vspace{1em}
+    Remember:
+    \\\vspace{1em}
+    Backup + WAL = Recoverable Database
+    \\\vspace{1em}
+    and:
+    \\\vspace{1em}
+    \textbf{OLDER} Backup + WAL = Recoverable Database
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{Recovery Time Objective}
+
+\begin{frame}[fragile]
+    \frametitle{Recovery Time Objective}
+
+    \Large The Recovery Time Objective (RTO) is the maximum time allowed between an unexpected failure and the resumption of normal operation.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Meeting the Recovery Time Objective}
+
+    First, define the Recovery Time Objective (RTO).
+    \\\vspace{1em}
+    The easiest way to meet a low RTO is to have a standby server ready and failover from the primary. This can be done manually or with a tool that automates the process, e.g. Patroni.
+    \\\vspace{1em}
+    Monitor the standby to make sure replication lag is within the tolerance of your Recovery Point Objective (RPO).
+    \\\vspace{1em}
+    A standby is not a backup! Even with standby it is important to have recent backups in case there are problems with the standby, or there was data loss that has already been replicated.
+    \\\vspace{1em}
+    Daily backups are usually sufficient, but be sure to measure your restore and recovery time to be sure it meets RTO.
+\end{frame}
+
+% ----------------------------------------------------------------------------------------------------------------------------------
+\section{Restore and Recovery}
+
+\begin{frame}
+    \frametitle{Schr\"{o}dinger’s Backup}
+
+    \Large The state of any backup is unknown until a restore is attempted.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Restore and Recovery}
+
+    Multi-processing can lead to dramatic reductions in restore time and network utilization.
+    \\\vspace{1em}
+    Use the \texttt{--delta} option with the \texttt{restore} command to save time.
+    \\\vspace{1em}
+    Double-check where you are restoring. pgBackRest will refuse to overwrite a \textit{running} cluster but it will overwrite a shut down cluster when \texttt{--delta} is used.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Restore Testing}
+
+    Test your restores! Also validate that the database looks correct after the restore.
+
+    \begin{itemize}
+        \item Check timestamps in a database to verify RPO was met
+        \item Use tools such as amcheck to verify consistency of the cluster
+        \item Run \texttt{pg\_dump} and (if possible) restore the cluster from the dump
+        \item Run smoke tests and/or regression tests
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Make a Disaster Recovery Plan}
+
+    \Large Make a disaster recovery plan.
+    \\\vspace{1em}
+    \Large Document the disaster recovery plan.
+    \\\vspace{1em}
+    \Large Practice the disaster recovery plan.
+\end{frame}
+
+\section{Questions?}
+
+\begin{frame}
+    \frametitle{Questions?}
+
+    website: \url{http://www.pgbackrest.org}\\
+    \vspace{1em}
+    email: \href{mailto:david@pgbackrest.org}{david@pgbackrest.org} \\
+    email: \href{mailto:david@crunchydata.com}{david@crunchydata.com}\\
+    \vspace{1em}
+    releases: \url{https://github.com/pgbackrest/pgbackrest/releases}\\
+    \vspace{1em}
+    slides \& demo: \url{https://github.com/dwsteele/conference/releases}\\
+\end{frame}
+
+% End document
+\end{document}
