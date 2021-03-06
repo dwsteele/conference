@@ -6,10 +6,10 @@
 % ----------------------------------------------------------------------------------------------------------------------------------
 \def\mytitle{Backup Best Practices\\with pgBackRest}
 \def\mysubject{}
-\def\myevent{PostgresConf.CN \& PGConf.Asia}
+\def\myevent{PGConf.Online 2021}
 \def\myauthor{David Steele}
 \def\myemail{}
-\def\mydate{November 20, 2020}
+\def\mydate{March 1, 2021}
 
 % Suppres navigation bars
 \def\mysuppressnav{}
@@ -132,7 +132,7 @@
         \item Backup and archive expiration
         \item Integrity checks / page checksum verification
         \item Delta restore
-        \item S3/Azure compatible object store support
+        \item S3/Azure compatible object store support (GCS coming soon!)
         \item Encryption
         \item Multiple compression types (gzip, bzip, lz4, zstd)
     \end{itemize}
@@ -290,7 +290,7 @@ pgbackrest --stanza=demo --set=20201103_190545F expire
     \begin{itemize}
         \item Storage on a repository host.
         \item NFS (or other network storage) mounted to the PostgreSQL host.
-        \item An object store (S3, Azure).
+        \item An object store (S3, Azure, GCS).
     \end{itemize}
 \end{frame}
 
